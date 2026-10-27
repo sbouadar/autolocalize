@@ -36,13 +36,13 @@ apps/api/
   src/routes/*.ts             health, auth (relais Better Auth), public, me, vehicles
   Dockerfile                  image de prod (build depuis la racine du dépôt)
 docker-compose.yml            prod sur le VPS (network_mode: host)
-docker-compose.dev.yml        MySQL 8.4 locale pour le dev
+docker-compose.dev.yml        MariaDB 10.5 locale pour le dev (même version que le VPS)
 ```
 
 Routes (préfixe `/api`) : `GET /health`, `/auth/*` (Better Auth : `POST /auth/sign-in/email`, `POST /auth/sign-out`, `GET /auth/get-session`, 2FA…), `GET /public/tenants/:slug/branding`, `GET /me`, `GET /vehicles`.
 
 Commandes (depuis `apps/api`, Node 24 actif) :
-- `docker compose -f ../../docker-compose.dev.yml up -d` : MySQL de dev
+- `docker compose -f ../../docker-compose.dev.yml up -d` : MariaDB de dev (service `db`)
 - `npm run prisma:migrate -- --name <nom>` : nouvelle migration (Prisma 7 ne régénère plus le client tout seul : le script enchaîne `prisma generate`)
 - `npm run seed` (variables `SEED_*`, voir l'en-tête de `scripts/seed.ts`)
 - `npm run dev` : serveur en rechargement auto ; `npm run typecheck`
@@ -59,6 +59,7 @@ Points de conception :
 ## État de l'infrastructure (au 2026-10-27)
 
 - VPS : **Rocky Linux 9.8** (famille RHEL : `dnf`, `firewalld`, SELinux). Paquets tiers via EPEL.
+- Base : **MariaDB 10.5.29** (pas MySQL), écoute sur `*:3306` mais port fermé par firewalld et IONOS (à passer en `bind-address=127.0.0.1`). Port 3000 libre (réservé au backend). Pas de Podman ; Docker en cours d'installation (dépôt officiel `docker-ce`).
 - Domaine : `autolocalize.net` → A `217.160.33.233` (VPS IONOS). Pas d'AAAA, pas d'enregistrement `www`.
 - Traccar **6.14.2** exposé en HTTP direct sur `http://autolocalize.net:8082/` (dernière version publiée : 6.16.0). Fuseau du serveur : `Africa/Casablanca`.
 - Pare-feu IONOS (« My firewall policy ») : seulement TCP 22, 80, 443, 5023 (gt06) autorisés pour tous (8082, 8443, 8447 supprimés le 2026-10-27).

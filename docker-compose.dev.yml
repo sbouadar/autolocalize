@@ -1,17 +1,17 @@
-# Base MySQL locale pour le développement uniquement.
+# Base locale pour le développement uniquement (MariaDB 10.5, comme sur le VPS).
 services:
-  mysql:
-    image: mysql:8.4
+  db:
+    image: mariadb:10.5
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: autolocalize
-      MYSQL_USER: autolocalize
-      MYSQL_PASSWORD: autolocalize
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: autolocalize
+      MARIADB_USER: autolocalize
+      MARIADB_PASSWORD: autolocalize
     ports:
       - "127.0.0.1:3306:3306"
     volumes:
-      - mysql-dev:/var/lib/mysql
+      - mariadb-dev:/var/lib/mysql
 
 volumes:
-  mysql-dev:
+  mariadb-dev:
