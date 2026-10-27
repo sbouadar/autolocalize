@@ -1,0 +1,23 @@
+# Secrets
+passwords.txt
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dépendances et builds
+node_modules/
+dist/
+build/
+.expo/
+.turbo/
+coverage/
+
+# Divers
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
