@@ -183,4 +183,8 @@ Ensuite : KPI et trajets, commandes moteur, notifications push (cf. section 9).
 
 ## 12. Étape en cours
 
-Phase 1 : squelette backend fait et testé en local (2026-10-27) : auth, `/me`, branding public, `/vehicles`, isolation par tenant, suspension. Reste : test de `/vehicles` avec le vrai jeton Traccar, création de la base MySQL dédiée sur le VPS, déploiement Docker + bloc Nginx `/api/`.
+**Phase 1 terminée** (2026-10-27) : backend déployé en production sur `https://autolocalize.net/api/`, testé de bout en bout (connexion du compte démo, `/vehicles` renvoie GPS1 en ligne avec sa position réelle).
+
+Petits restes d'infra : `certbot renew --dry-run --cert-name autolocalize.net` à confirmer ; MariaDB en `bind-address=127.0.0.1` ; masquer les traces Java de Traccar ; mise à jour Traccar 6.16.0.
+
+Prochaine étape à choisir : phase 2 (back-office : super-admin + branding modifiable) ou phase 3 (application Expo : connexion, thème, carte).
