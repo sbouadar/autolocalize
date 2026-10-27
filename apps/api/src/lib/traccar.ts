@@ -72,11 +72,31 @@ function idsQuery(ids: number[]): URLSearchParams {
   return query;
 }
 
+// Traccar applique les droits de rattachement à /devices?id=… même pour un admin ;
+// seul all=true les ignore. On charge donc tous les appareils, avec un cache court.
+const DEVICES_TTL_MS = 5_000;
+let devicesCache: { at: number; data: Promise<Map<number, TraccarDevice>> } | null = null;
+
+function allDevices(): Promise<Map<number, TraccarDevice>> {
+  if (!devicesCache || Date.now() - devicesCache.at > DEVICES_TTL_MS) {
+    const data = request<TraccarDevice[]>("/devices", new URLSearchParams({ all: "true" })).then(
+      (list) => new Map(list.map((d) => [d.id, d])),
+    );
+    // En cas d'échec, on ne garde pas la promesse rejetée en cache.
+    data.catch(() => {
+      devicesCache = null;
+    });
+    devicesCache = { at: Date.now(), data };
+  }
+  return devicesCache.data;
+}
+
 export const traccar = {
   /** Appareils par identifiant Traccar. */
   async getDevices(ids: number[]): Promise<TraccarDevice[]> {
     if (ids.length === 0) return [];
-    return request<TraccarDevice[]>("/devices", idsQuery(ids));
+    const devices = await allDevices();
+    return ids.flatMap((id) => devices.get(id) ?? []);
   },
 
   /** Positions par identifiant de position (dernière position connue de chaque appareil). */

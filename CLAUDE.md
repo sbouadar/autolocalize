@@ -52,7 +52,7 @@ Points de conception :
 - Rôles : `SUPER_ADMIN` (sans tenant), `TENANT_ADMIN`, `VIEWER`. Pas de plugin « organization » de Better Auth : un utilisateur appartient à un seul tenant (`user.tenantId`), c'est plus simple.
 - `requireAuth` relit rôle et tenant en base à chaque requête ; tenant non `ACTIVE` → 403.
 - Comptes créés par admin uniquement (`disableSignUp`) ; le seed écrit le hash Better Auth dans `account` (`providerId = "credential"`).
-- `GET /vehicles` : liste issue de notre base (filtrée par tenant), enrichie par Traccar (`/api/devices?id=…` puis `/api/positions?id=…`). Si Traccar est injoignable, renvoie la liste avec `liveDataAvailable: false`.
+- `GET /vehicles` : liste issue de notre base (filtrée par tenant), enrichie par Traccar (`/api/devices?all=true` en cache 5 s, puis `/api/positions?id=…`). Piège Traccar : `/api/devices?id=…` applique les rattachements même pour un admin (renvoie vide pour `bff-service`) ; `all=true` et `/api/positions?id=…` passent pour un admin. Si Traccar est injoignable, renvoie la liste avec `liveDataAvailable: false`.
 - Les 5xx ne renvoient jamais le message interne ; cookies et en-tête `Authorization` masqués dans les logs.
 - Image Docker ~770 Mo : à optimiser plus tard.
 
