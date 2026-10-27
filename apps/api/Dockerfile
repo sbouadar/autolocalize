@@ -15,6 +15,7 @@ RUN npm prune --omit=dev --workspace @autolocalize/api --include-workspace-root 
 
 FROM node:24-alpine
 ENV NODE_ENV=production
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./

@@ -27,7 +27,7 @@ apps/api/
   prisma/schema.prisma        schéma (tables applicatives + tables Better Auth)
   prisma/migrations/          migrations SQL versionnées
   prisma.config.ts            config Prisma 7 (URL de la base, charge .env)
-  scripts/seed.ts             super-admin + client « demo » + traceur GPS1 (idempotent)
+  src/scripts/seed.ts         super-admin + client « demo » + traceur GPS1 (idempotent)
   src/config.ts               variables d'environnement validées par Zod
   src/lib/prisma.ts           client Prisma (adaptateur mariadb, compatible MySQL)
   src/lib/auth.ts             Better Auth (email/mot de passe, inscription désactivée, 2FA, bearer)
@@ -44,7 +44,7 @@ Routes (préfixe `/api`) : `GET /health`, `/auth/*` (Better Auth : `POST /auth/s
 Commandes (depuis `apps/api`, Node 24 actif) :
 - `docker compose -f ../../docker-compose.dev.yml up -d` : MariaDB de dev (service `db`)
 - `npm run prisma:migrate -- --name <nom>` : nouvelle migration (Prisma 7 ne régénère plus le client tout seul : le script enchaîne `prisma generate`)
-- `npm run seed` (variables `SEED_*`, voir l'en-tête de `scripts/seed.ts`)
+- `npm run seed` (variables `SEED_*`, voir l'en-tête de `src/scripts/seed.ts`) ; en prod : `docker compose exec -e SEED_…=… api node dist/scripts/seed.js`
 - `npm run dev` : serveur en rechargement auto ; `npm run typecheck`
 - En local, le port 3000 est déjà pris par une autre application : le `.env` de dev utilise **3100**.
 
@@ -59,7 +59,7 @@ Points de conception :
 ## État de l'infrastructure (au 2026-10-27)
 
 - VPS : **Rocky Linux 9.8** (famille RHEL : `dnf`, `firewalld`, SELinux). Paquets tiers via EPEL.
-- Base : **MariaDB 10.5.29** (pas MySQL), écoute sur `*:3306` mais port fermé par firewalld et IONOS (à passer en `bind-address=127.0.0.1`). Port 3000 libre (réservé au backend). Pas de Podman ; Docker en cours d'installation (dépôt officiel `docker-ce`).
+- Base : **MariaDB 10.5.29** (pas MySQL), écoute sur `*:3306` mais port fermé par firewalld et IONOS (à passer en `bind-address=127.0.0.1`). Port 3000 libre (réservé au backend). Pas de Podman. **Docker 29.9.2 + Compose 5.6.1** installés (dépôt officiel `docker-ce`, 2026-10-27). Administration du VPS en root.
 - Domaine : `autolocalize.net` → A `217.160.33.233` (VPS IONOS). Pas d'AAAA, pas d'enregistrement `www`.
 - Traccar **6.14.2** exposé en HTTP direct sur `http://autolocalize.net:8082/` (dernière version publiée : 6.16.0). Fuseau du serveur : `Africa/Casablanca`.
 - Pare-feu IONOS (« My firewall policy ») : seulement TCP 22, 80, 443, 5023 (gt06) autorisés pour tous (8082, 8443, 8447 supprimés le 2026-10-27).
@@ -72,6 +72,7 @@ Points de conception :
 - Interface web Traccar restreinte à `127.0.0.1:8082` (`web.address` dans `/opt/traccar/conf/traccar.xml`, sauvegarde `traccar.xml.bak-2026-10-27`) : 8082 n'est plus joignable de l'extérieur (vérifié), seul Nginx y accède. Port traceurs `*:5023` inchangé.
 - À confirmer : 8082 retiré de firewalld.
 - `www.autolocalize.net` : volontairement non configuré (pas jugé utile).
+- **Backend déployé** (2026-10-27) : dépôt cloné dans `/opt/autolocalize` (clé de déploiement GitHub en lecture seule `/root/.ssh/autolocalize_deploy`, hôte SSH `github-autolocalize`). Base MariaDB `autolocalize`, utilisateur `autolocalize`@`127.0.0.1`/`localhost`. Secrets dans `/opt/autolocalize/apps/api/.env` (chmod 600). Conteneur `docker compose up -d --build` → `127.0.0.1:3000`, migration `init` appliquée, `/api/health` OK. Mise à jour : `cd /opt/autolocalize && git pull && docker compose up -d --build`.
 - `https://traccar.autolocalize.net/` opérationnel (2026-10-27) : A → 217.160.33.233, `/etc/nginx/conf.d/traccar.conf` → `127.0.0.1:8082`, certificat Let's Encrypt dédié (expire le 2027-01-25, renouvellement automatique), HTTP → HTTPS. Traccar reste aussi servi sur `autolocalize.net` tant que l'application client n'y est pas déployée ; à basculer ensuite (et utiliser `traccar.autolocalize.net` comme URL Traccar du backend).
 - Plus tard : mettre à jour Traccar (6.14.2 → 6.16.0) ; certificat wildcard `*.autolocalize.net` (validation DNS IONOS) quand il y aura un sous-domaine par client.
 

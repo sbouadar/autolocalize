@@ -1,5 +1,6 @@
 // Données initiales : un super-admin, un client de démonstration, son admin et le traceur de test.
 // Idempotent : peut être relancé sans créer de doublons.
+// En prod : docker compose exec -e SEED_...=... api node dist/scripts/seed.js
 //
 // Variables requises : SEED_SUPERADMIN_EMAIL, SEED_SUPERADMIN_PASSWORD,
 //                      SEED_DEMO_ADMIN_EMAIL, SEED_DEMO_ADMIN_PASSWORD
@@ -7,8 +8,8 @@
 
 import { hashPassword } from "better-auth/crypto";
 import { randomUUID } from "node:crypto";
-import type { Role } from "../src/generated/prisma/enums.js";
-import { prisma } from "../src/lib/prisma.js";
+import type { Role } from "../generated/prisma/enums.js";
+import { prisma } from "../lib/prisma.js";
 
 function required(name: string): string {
   const value = process.env[name];
