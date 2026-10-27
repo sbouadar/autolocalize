@@ -1,0 +1,11 @@
+# Production sur le VPS. Le fichier apps/api/.env (non versionné) contient les secrets.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file: apps/api/.env
+    # Réseau de l'hôte : le conteneur joint Traccar (127.0.0.1:8082) et MySQL sur la boucle locale,
+    # et n'écoute lui-même que sur 127.0.0.1:${PORT}, derrière Nginx.
+    network_mode: host

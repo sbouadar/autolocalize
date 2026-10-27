@@ -1,0 +1,211 @@
+// Schéma de la base de l'application (distincte de la base Traccar).
+// Les modèles User, Session, Account, Verification et TwoFactor sont ceux attendus par Better Auth.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─── Clients (tenants) ────────────────────────────────────────────────────────
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED // impayé : accès bloqué, données conservées
+  CANCELLED
+}
+
+model Tenant {
+  id             String       @id @default(cuid())
+  slug           String       @unique @db.VarChar(64) // utilisé dans /login/<slug>
+  name           String       @db.VarChar(191)
+  address        String?      @db.VarChar(500)
+  phone          String?      @db.VarChar(32)
+  email          String?      @db.VarChar(191)
+  logoUrl        String?      @db.VarChar(500)
+  primaryColor   String       @default("#1E3A8A") @db.VarChar(7)
+  secondaryColor String       @default("#F59E0B") @db.VarChar(7)
+  status         TenantStatus @default(ACTIVE)
+  traccarGroupId Int?         @unique // groupe Traccar du client
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  users      User[]
+  vehicles   Vehicle[]
+  commandLog CommandLog[]
+
+  @@map("tenants")
+}
+
+// ─── Authentification (Better Auth) ───────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN  // exploitant de la plateforme, sans tenant
+  TENANT_ADMIN // admin du client : branding, utilisateurs, commandes moteur
+  VIEWER       // lecture seule
+}
+
+model User {
+  id               String    @id
+  name             String    @db.VarChar(191)
+  email            String    @unique @db.VarChar(191)
+  emailVerified    Boolean   @default(false)
+  image            String?   @db.VarChar(500)
+  role             Role      @default(VIEWER)
+  tenantId         String?
+  traccarUserId    Int?      // utilisateur Traccar lié, si besoin
+  twoFactorEnabled Boolean?  @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  sessions    Session[]
+  accounts    Account[]
+  twoFactors  TwoFactor[]
+  pushTokens  PushToken[]
+  commandLog  CommandLog[]
+
+  @@index([tenantId])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique @db.VarChar(191)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?  @db.VarChar(64)
+  userAgent String?  @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @db.VarChar(191)
+  providerId            String    @db.VarChar(64)
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String   @db.VarChar(191)
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String    @db.VarChar(255)
+  backupCodes             String    @db.Text
+  userId                  String
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([secret])
+  @@index([userId])
+  @@map("twoFactor")
+}
+
+// ─── Véhicules ────────────────────────────────────────────────────────────────
+
+model Vehicle {
+  id              String   @id @default(cuid())
+  tenantId        String
+  traccarDeviceId Int      @unique // un traceur n'appartient qu'à un seul client
+  name            String   @db.VarChar(191)
+  plate           String?  @db.VarChar(32)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  commandLog CommandLog[]
+
+  @@index([tenantId])
+  @@map("vehicles")
+}
+
+// ─── Journal d'audit des commandes moteur ─────────────────────────────────────
+
+enum EngineCommand {
+  ENGINE_STOP
+  ENGINE_RESUME
+}
+
+enum CommandStatus {
+  SENT     // acceptée par Traccar
+  REJECTED // refusée par le backend (droits, vitesse, fréquence)
+  FAILED   // erreur Traccar ou réseau
+}
+
+model CommandLog {
+  id              String        @id @default(cuid())
+  tenantId        String
+  userId          String
+  vehicleId       String
+  command         EngineCommand
+  status          CommandStatus
+  reason          String?       @db.VarChar(500) // motif du refus ou de l'échec
+  lastKnownSpeed  Float?        // vitesse (km/h) au moment de la demande
+  traccarResponse String?       @db.Text
+  ipAddress       String?       @db.VarChar(64)
+  createdAt       DateTime      @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([vehicleId, createdAt])
+  @@map("command_log")
+}
+
+// ─── Notifications push ───────────────────────────────────────────────────────
+
+enum PushPlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+model PushToken {
+  id         String       @id @default(cuid())
+  userId     String
+  token      String       @unique @db.VarChar(255)
+  platform   PushPlatform
+  createdAt  DateTime     @default(now())
+  lastSeenAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_tokens")
+}

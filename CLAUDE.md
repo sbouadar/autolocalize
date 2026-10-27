@@ -10,6 +10,52 @@ Projet de service de suivi GPS de véhicules à commercialiser, construit au-des
 - Ne jamais lire, afficher ni committer `passwords.txt` ni aucun secret (clé du compte de service Traccar, mots de passe de base, `.env`).
 - Mettre à jour ce fichier dès qu'une décision est prise ou qu'un état de l'infrastructure change (section « État de l'infrastructure »).
 
+## Dépôt
+
+- GitHub privé : `git@github.com:sbouadar/autolocalize.git`, branche `main`. Dépôt git dédié à ce dossier (distinct du dépôt parent `Documents/perso`).
+- Accès SSH depuis WSL via `~/.ssh/id_ed25519_github` (déclaré dans `~/.ssh/config`).
+- `git push` est fait par l'utilisateur (non autorisé pour Claude) : lui donner la commande.
+
+## Projet backend (`apps/api`)
+
+Monorepo npm workspaces (`apps/*`). Node **24 LTS** (via nvm : `source ~/.nvm/nvm.sh && nvm use 24` ; Node 20 est en fin de vie et son npm plante sur les dépendances de Better Auth). npm 11.19+ bloque les scripts d'installation : ceux autorisés sont listés dans `allowScripts` du `package.json` racine.
+
+Versions figées (vérifiées le 2026-10-27) : Fastify 5.12.7, Better Auth 1.7.14, Prisma 7.10.1 (la balise `latest` de npm pointe sur une RC 8.0 non supportée par Better Auth : rester en 7.x), `@prisma/adapter-mariadb` 7.10.1, Zod 4.6.7, TypeScript 7.0.2, tsx 4.23.15.
+
+```
+apps/api/
+  prisma/schema.prisma        schéma (tables applicatives + tables Better Auth)
+  prisma/migrations/          migrations SQL versionnées
+  prisma.config.ts            config Prisma 7 (URL de la base, charge .env)
+  scripts/seed.ts             super-admin + client « demo » + traceur GPS1 (idempotent)
+  src/config.ts               variables d'environnement validées par Zod
+  src/lib/prisma.ts           client Prisma (adaptateur mariadb, compatible MySQL)
+  src/lib/auth.ts             Better Auth (email/mot de passe, inscription désactivée, 2FA, bearer)
+  src/lib/traccar.ts          client REST Traccar (jeton du compte de service)
+  src/plugins/auth-context.ts requireAuth / requireRole, contrôle du statut du tenant
+  src/routes/*.ts             health, auth (relais Better Auth), public, me, vehicles
+  Dockerfile                  image de prod (build depuis la racine du dépôt)
+docker-compose.yml            prod sur le VPS (network_mode: host)
+docker-compose.dev.yml        MySQL 8.4 locale pour le dev
+```
+
+Routes (préfixe `/api`) : `GET /health`, `/auth/*` (Better Auth : `POST /auth/sign-in/email`, `POST /auth/sign-out`, `GET /auth/get-session`, 2FA…), `GET /public/tenants/:slug/branding`, `GET /me`, `GET /vehicles`.
+
+Commandes (depuis `apps/api`, Node 24 actif) :
+- `docker compose -f ../../docker-compose.dev.yml up -d` : MySQL de dev
+- `npm run prisma:migrate -- --name <nom>` : nouvelle migration (Prisma 7 ne régénère plus le client tout seul : le script enchaîne `prisma generate`)
+- `npm run seed` (variables `SEED_*`, voir l'en-tête de `scripts/seed.ts`)
+- `npm run dev` : serveur en rechargement auto ; `npm run typecheck`
+- En local, le port 3000 est déjà pris par une autre application : le `.env` de dev utilise **3100**.
+
+Points de conception :
+- Rôles : `SUPER_ADMIN` (sans tenant), `TENANT_ADMIN`, `VIEWER`. Pas de plugin « organization » de Better Auth : un utilisateur appartient à un seul tenant (`user.tenantId`), c'est plus simple.
+- `requireAuth` relit rôle et tenant en base à chaque requête ; tenant non `ACTIVE` → 403.
+- Comptes créés par admin uniquement (`disableSignUp`) ; le seed écrit le hash Better Auth dans `account` (`providerId = "credential"`).
+- `GET /vehicles` : liste issue de notre base (filtrée par tenant), enrichie par Traccar (`/api/devices?id=…` puis `/api/positions?id=…`). Si Traccar est injoignable, renvoie la liste avec `liveDataAvailable: false`.
+- Les 5xx ne renvoient jamais le message interne ; cookies et en-tête `Authorization` masqués dans les logs.
+- Image Docker ~770 Mo : à optimiser plus tard.
+
 ## État de l'infrastructure (au 2026-10-27)
 
 - VPS : **Rocky Linux 9.8** (famille RHEL : `dnf`, `firewalld`, SELinux). Paquets tiers via EPEL.
@@ -116,7 +162,7 @@ Phase 0 — Décisions et prérequis
 - Compte de service Traccar créé (2026-10-27) : `bff-service` / `bff@autolocalize.net`, admin, expiration 2099, sans attributs. Jeton d'API (Bearer) stocké hors projet, à placer uniquement dans le `.env` du backend sur le VPS. Jeton validé sur `/api/devices?all=true` (un premier jeton divulgué a été révoqué). Le compte n'a aucun appareil rattaché : en tant qu'admin, il accède à tout via l'API.
 - Traceurs existants : 1 appareil de test `GPS1` (id 1, IMEI 865190074141964, groupe id 1, en ligne).
 - Rattachement client ↔ Traccar : un **groupe Traccar par tenant** ; la table `vehicles` de l'application reste la source de vérité pour l'appartenance.
-- Authentification : **Better Auth** retenu (2026-10-27) — bibliothèque TS auto-hébergée, comptes dans notre base, 2FA, plugin « organization » pour les tenants.
+- Authentification : **Better Auth** retenu (2026-10-27) — bibliothèque TS auto-hébergée, comptes dans notre base, 2FA (plugin two-factor), plugin bearer pour le mobile. Plugin « organization » finalement non utilisé (voir « Projet backend »).
 - Framework HTTP : **Fastify** retenu (2026-10-27) — plugins officiels rate-limit, multipart, websocket, helmet, cors ; validation par schéma ; intégration Better Auth.
 - ORM / migrations : **Prisma** retenu (2026-10-27), avec l'adaptateur Prisma de Better Auth. Vérifier la version courante et ses exigences (configuration, adaptateur de pilote MySQL) avant d'écrire le code.
 - Branding (2026-10-27) : **un seul domaine**, pas de sous-domaine par client. Branding complet chargé après connexion (`GET /me`). Sur le web, page de connexion personnalisable via `https://autolocalize.net/login/<slug>` (ex. `/login/client1`) : endpoint public `GET /public/tenants/:slug/branding` qui ne renvoie que nom, logo, couleurs (404 générique si slug inconnu). `/login` sans slug = page à la marque AutoLocalize. App mobile : branding après connexion uniquement. Pas de wildcard nécessaire.
@@ -132,4 +178,4 @@ Ensuite : KPI et trajets, commandes moteur, notifications push (cf. section 9).
 
 ## 12. Étape en cours
 
-Phase 0 : trancher les choix techniques, puis squelette backend (structure, schéma SQL, premiers endpoints).
+Phase 1 : squelette backend fait et testé en local (2026-10-27) : auth, `/me`, branding public, `/vehicles`, isolation par tenant, suspension. Reste : test de `/vehicles` avec le vrai jeton Traccar, création de la base MySQL dédiée sur le VPS, déploiement Docker + bloc Nginx `/api/`.
