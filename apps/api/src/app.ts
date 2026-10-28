@@ -7,6 +7,7 @@ import { config, isProduction } from "./config.js";
 import authContext from "./plugins/auth-context.js";
 import adminRoutes from "./routes/admin.js";
 import authRoutes from "./routes/auth.js";
+import commandRoutes from "./routes/commands.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import healthRoutes from "./routes/health.js";
 import meRoutes from "./routes/me.js";
@@ -57,6 +58,7 @@ export async function buildApp() {
       await api.register(publicRoutes);
       await api.register(meRoutes);
       await api.register(vehicleRoutes);
+      await api.register(commandRoutes);
       await api.register(dashboardRoutes);
       await api.register(tenantRoutes);
       await api.register(adminRoutes);

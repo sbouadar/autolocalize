@@ -183,13 +183,20 @@ export function useTenantActions(id: string) {
     setLogo: (data: string) => api(`${base}/logo`, { method: "POST", body: { data } }).then(refresh),
     removeLogo: () => api(`${base}/logo`, { method: "DELETE" }).then(refresh),
     resetPassword: () => api(`${base}/reset-password`, { method: "POST", body: {}, schema: credentialsSchema }).finally(refresh),
-    assignVehicle: (body: { name: string; plate: string | null; traccarDeviceId?: number; imei?: string }) =>
+    assignVehicle: (body: AssignVehicleInput) =>
       api(`${base}/vehicles`, { method: "POST", body }).then(refresh),
     updateVehicle: (vehicleId: string, body: { name?: string; plate?: string | null }) =>
       api(`/admin/vehicles/${encodeURIComponent(vehicleId)}`, { method: "PUT", body }).then(refresh),
     removeVehicle: (vehicleId: string) =>
       api(`/admin/vehicles/${encodeURIComponent(vehicleId)}`, { method: "DELETE" }).then(refresh),
   };
+}
+
+export interface AssignVehicleInput {
+  name: string;
+  plate: string | null;
+  traccarDeviceId?: number;
+  imei?: string;
 }
 
 /** Identifiant d'URL proposé à partir du nom : « Démo Transport » → « demo-transport ». */

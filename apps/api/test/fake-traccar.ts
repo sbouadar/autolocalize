@@ -22,6 +22,8 @@ export interface FakeTraccar {
     summary: Record<string, unknown>[];
     stops: Record<string, unknown>[];
   };
+  /** Types de commandes par appareil (par défaut : coupure et rétablissement du moteur). */
+  commandTypes: Record<number, string[]>;
   /** Force une réponse 500 sur toutes les routes (Traccar en panne). */
   down: boolean;
   requests: FakeRequest[];
@@ -79,6 +81,7 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
     positions: [],
     groups: [],
     reports: { trips: [], route: [], summary: [], stops: [] },
+    commandTypes: {},
     down: false,
     requests: [],
     reset() {
@@ -86,6 +89,7 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       this.positions = [];
       this.groups = [];
       this.reports = { trips: [], route: [], summary: [], stops: [] };
+      this.commandTypes = {};
       this.down = false;
       this.requests = [];
     },
@@ -120,6 +124,18 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       const kind = path.slice("/api/reports/".length) as keyof FakeTraccar["reports"];
       if (!(kind in fake.reports)) return send(res, 404);
       return send(res, 200, byDevice(fake.reports[kind] as { deviceId?: unknown }[]));
+    }
+    if (req.method === "GET" && path === "/api/commands/types") {
+      const id = Number(url.searchParams.get("deviceId"));
+      const types = fake.commandTypes[id] ?? ["engineStop", "engineResume", "custom"];
+      return send(res, 200, types.map((type) => ({ type })));
+    }
+    if (req.method === "POST" && path === "/api/commands/send") {
+      const command = body as { deviceId: number; type: string };
+      const target = fake.devices.find((d) => d.id === command.deviceId);
+      if (!target) return send(res, 400, "Device not found");
+      // Comme Traccar : 202 si le traceur est hors ligne (commande mise en file d'attente).
+      return send(res, target.status === "online" ? 200 : 202, { id: nextId++, ...command });
     }
     if (req.method === "POST" && path === "/api/groups") {
       const group = { id: nextId++, groupId: 0, attributes: {}, ...(body as { name: string }) };

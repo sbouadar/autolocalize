@@ -19,7 +19,7 @@ export const REPORT_RATE_LIMIT = { rateLimit: { max: 30, timeWindow: "1 minute" 
  * Véhicule demandé, s'il appartient au client connecté. Un véhicule d'un autre client
  * est traité exactement comme un véhicule inexistant (404) : on ne révèle pas son existence.
  */
-async function findOwnedVehicle(request: FastifyRequest): Promise<VehicleRow | null> {
+export async function findOwnedVehicle(request: FastifyRequest): Promise<VehicleRow | null> {
   const parsed = idParams.safeParse(request.params);
   if (!parsed.success) return null;
   return prisma.vehicle.findFirst({
@@ -64,7 +64,7 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
     if (!vehicle) return reply.notFound();
     const requested = parsePeriod(request.query, TRIPS_MAX_DAYS);
     if ("error" in requested) return reply.badRequest(requested.error);
-    const period = clampToAssignment(requested, vehicle.createdAt);
+    const period = clampToAssignment(requested, vehicle.historyStartAt);
     if (!period) return { trips: [] };
 
     let trips;
@@ -95,7 +95,7 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
     if (!vehicle) return reply.notFound();
     const requested = parsePeriod(request.query, ROUTE_MAX_DAYS);
     if ("error" in requested) return reply.badRequest(requested.error);
-    const period = clampToAssignment(requested, vehicle.createdAt);
+    const period = clampToAssignment(requested, vehicle.historyStartAt);
     if (!period) return { truncated: false, points: [] };
 
     let positions;

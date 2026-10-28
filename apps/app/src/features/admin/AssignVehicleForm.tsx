@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { Button } from "@/components/Button";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { TextField } from "@/components/TextField";
-import { useDevices } from "@/lib/admin";
+import { useDevices, type AssignVehicleInput } from "@/lib/admin";
 import { formMessage, userMessage } from "@/lib/api";
 import { useBranding } from "@/lib/branding-context";
 import { relativeTime } from "@/lib/format";
@@ -13,7 +13,7 @@ type Mode = "existing" | "imei";
 const IMEI = /^[0-9A-Za-z]{5,32}$/;
 
 interface AssignVehicleFormProps {
-  onAssign: (body: { name: string; plate: string | null; traccarDeviceId?: number; imei?: string }) => Promise<unknown>;
+  onAssign: (body: AssignVehicleInput) => Promise<unknown>;
   onDone: () => void;
 }
 
@@ -28,12 +28,17 @@ export function AssignVehicleForm({ onAssign, onDone }: AssignVehicleFormProps) 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const devices = useDevices(mode === "existing");
-  const free = (devices.data?.devices ?? []).filter((d) => d.assignment === null);
+  const all = devices.data?.devices ?? [];
+  const free = all.filter((d) => d.assignment === null);
+  const taken = all.filter((d) => d.assignment !== null);
 
   const submit = async () => {
     setError(null);
     if (!name.trim()) return setError("Donnez un nom au véhicule.");
-    if (mode === "existing" && deviceId === null) return setError("Choisissez un traceur dans la liste.");
+    if (mode === "existing" && free.length === 0) {
+      return setError("Aucun traceur libre : retirez-en un d’un autre client, ou déclarez-en un nouveau par son IMEI.");
+    }
+    if (mode === "existing" && deviceId === null) return setError("Choisissez un traceur libre dans la liste.");
     if (mode === "imei" && !IMEI.test(imei.trim())) return setError("IMEI invalide (5 à 32 chiffres ou lettres).");
     setSaving(true);
     try {
@@ -76,10 +81,14 @@ export function AssignVehicleForm({ onAssign, onDone }: AssignVehicleFormProps) 
         <ActivityIndicator color={branding.primaryColor} />
       ) : devices.isError ? (
         <Text style={styles.error}>{userMessage(devices.error)}</Text>
-      ) : free.length === 0 ? (
-        <Text style={styles.muted}>Aucun traceur libre dans Traccar : déclarez-en un nouveau par son IMEI.</Text>
       ) : (
         <View style={styles.devices} accessibilityRole="radiogroup" accessibilityLabel="Traceurs libres">
+          {free.length === 0 ? (
+            <Text style={styles.muted}>
+              Aucun traceur libre. Retirez-en un d’un autre client (fiche du client, « Retirer ») ou déclarez-en un
+              nouveau par son IMEI.
+            </Text>
+          ) : null}
           {free.map((d) => {
             const selected = d.id === deviceId;
             return (
@@ -98,6 +107,14 @@ export function AssignVehicleForm({ onAssign, onDone }: AssignVehicleFormProps) 
               </Pressable>
             );
           })}
+          {taken.map((d) => (
+            <View key={d.id} style={[styles.device, styles.taken]} accessibilityLabel={`${d.name}, déjà affecté à ${d.assignment!.tenantName}`}>
+              <Text style={styles.deviceName}>{d.name}</Text>
+              <Text style={styles.muted}>
+                IMEI {d.uniqueId} · déjà affecté à {d.assignment!.tenantName} ({d.assignment!.vehicleName})
+              </Text>
+            </View>
+          ))}
         </View>
       )}
 
@@ -117,6 +134,7 @@ export function AssignVehicleForm({ onAssign, onDone }: AssignVehicleFormProps) 
 const styles = StyleSheet.create({
   form: { gap: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
   devices: { gap: spacing.sm },
+  taken: { opacity: 0.55, backgroundColor: colors.background },
   device: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, gap: 2 },
   deviceName: { fontSize: 15, fontWeight: "600", color: colors.text },
   muted: { fontSize: 13, color: colors.muted },

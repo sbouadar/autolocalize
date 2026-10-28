@@ -146,6 +146,9 @@ model Vehicle {
   traccarDeviceId Int      @unique // un traceur n'appartient qu'à un seul client
   name            String   @db.VarChar(191)
   plate           String?  @db.VarChar(32)
+  // Début de l'historique visible par le client (trajets, tracé, KPI). Par défaut l'affectation ;
+  // le super-admin peut l'avancer (traceur neuf ou déjà chez ce client), jamais au profit d'un autre client.
+  historyStartAt  DateTime @default(now())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -173,7 +176,10 @@ model CommandLog {
   id              String        @id @default(cuid())
   tenantId        String
   userId          String
-  vehicleId       String
+  // Vide si le véhicule a été retiré du client depuis : le journal reste lisible grâce aux copies ci-dessous.
+  vehicleId       String?
+  vehicleName     String?       @db.VarChar(191) // nom du véhicule au moment de la commande
+  traccarDeviceId Int?          // traceur visé
   command         EngineCommand
   status          CommandStatus
   reason          String?       @db.VarChar(500) // motif du refus ou de l'échec
@@ -184,7 +190,7 @@ model CommandLog {
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@index([vehicleId, createdAt])

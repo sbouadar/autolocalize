@@ -53,6 +53,15 @@ async function request<T>(
   query?: URLSearchParams,
   write?: { method: "POST" | "PUT"; body: unknown },
 ): Promise<T> {
+  return (await send(path, query, write)).data as T;
+}
+
+/** Appel brut : renvoie aussi le statut HTTP (202 = commande mise en file d'attente par Traccar). */
+async function send(
+  path: string,
+  query?: URLSearchParams,
+  write?: { method: "POST" | "PUT"; body: unknown },
+): Promise<{ status: number; data: unknown }> {
   const url = new URL(`/api${path}`, config.TRACCAR_URL);
   if (query) url.search = query.toString();
 
@@ -70,7 +79,8 @@ async function request<T>(
   if (!res.ok) {
     throw new TraccarError(`Traccar ${path} : HTTP ${res.status}`, res.status);
   }
-  return (await res.json()) as T;
+  const text = await res.text();
+  return { status: res.status, data: text ? (JSON.parse(text) as unknown) : null };
 }
 
 function idsQuery(ids: number[]): URLSearchParams {
@@ -128,6 +138,24 @@ export const traccar = {
     if (!current) throw new TraccarError(`Appareil ${deviceId} introuvable`, 404);
     await request(`/devices/${deviceId}`, undefined, { method: "PUT", body: { ...current, groupId } });
     resetTraccarCache();
+  },
+
+  /** Types de commandes que Traccar sait envoyer à ce traceur (selon son protocole et son modèle). */
+  async getCommandTypes(deviceId: number): Promise<string[]> {
+    const types = await request<{ type: string }[]>("/commands/types", new URLSearchParams({ deviceId: String(deviceId) }));
+    return types.map((t) => t.type);
+  },
+
+  /**
+   * Envoie une commande au traceur. queued = true si le traceur est hors ligne : Traccar la garde
+   * en file d'attente et la transmettra à sa prochaine connexion (HTTP 202).
+   */
+  async sendCommand(deviceId: number, type: string): Promise<{ queued: boolean }> {
+    const { status } = await send("/commands/send", undefined, {
+      method: "POST",
+      body: { deviceId, type, attributes: {} },
+    });
+    return { queued: status === 202 };
   },
 
   /** Appareils par identifiant Traccar. */

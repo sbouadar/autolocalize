@@ -11,4 +11,6 @@ export interface VehicleMapProps {
    * le passer mémoïsé pour ne pas recadrer à chaque rendu.
    */
   route?: LatLng[];
+  /** Position du replay : marqueur qui se déplace sur le tracé (sans recadrer la carte). */
+  cursor?: LatLng | null;
 }

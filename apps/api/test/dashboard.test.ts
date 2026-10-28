@@ -30,10 +30,10 @@ describe("GET /api/dashboard/kpis", () => {
     await createUser("alice@alpha.test", "TENANT_ADMIN", a.id);
     await prisma.vehicle.createMany({
       data: [
-        { tenantId: a.id, traccarDeviceId: 1, name: "Roule", createdAt: ASSIGNED },
-        { tenantId: a.id, traccarDeviceId: 2, name: "Garé", createdAt: ASSIGNED },
-        { tenantId: a.id, traccarDeviceId: 3, name: "Éteint", createdAt: ASSIGNED },
-        { tenantId: b.id, traccarDeviceId: 9, name: "Autre client", createdAt: ASSIGNED },
+        { tenantId: a.id, traccarDeviceId: 1, name: "Roule", historyStartAt: ASSIGNED },
+        { tenantId: a.id, traccarDeviceId: 2, name: "Garé", historyStartAt: ASSIGNED },
+        { tenantId: a.id, traccarDeviceId: 3, name: "Éteint", historyStartAt: ASSIGNED },
+        { tenantId: b.id, traccarDeviceId: 9, name: "Autre client", historyStartAt: ASSIGNED },
       ],
     });
     ctx.traccar.devices = [
@@ -81,19 +81,14 @@ describe("GET /api/dashboard/kpis", () => {
     assert.deepEqual(sent.query.getAll("deviceId").sort(), ["1", "2", "3"]);
   });
 
-  it("borne chaque traceur à sa date d'affectation au client", async () => {
-    const assignedAt = new Date("2026-10-27T18:00:00Z");
-    await prisma.vehicle.updateMany({ where: { name: "Garé", createdAt: ASSIGNED }, data: { createdAt: assignedAt } });
+  it("compte toute la période, même avant l'affectation (limite désactivée)", async () => {
+    await prisma.vehicle.updateMany({ where: { name: "Garé" }, data: { historyStartAt: new Date("2026-10-27T18:00:00Z") } });
     ctx.traccar.requests = [];
     const res = await call(ctx.app, "GET", `/api/dashboard/kpis?${range}`, alice);
     assert.equal(res.status, 200);
     const summaries = ctx.traccar.requests.filter((r) => r.path === "/api/reports/summary");
-    const byFrom = Object.fromEntries(summaries.map((r) => [r.query.get("from"), r.query.getAll("deviceId").sort()]));
-    assert.deepEqual(byFrom, {
-      "2026-10-27T00:00:00.000Z": ["1", "3"],
-      [assignedAt.toISOString()]: ["2"],
-    });
-    // Les rapports des deux fenêtres sont bien fusionnés.
+    assert.equal(summaries.length, 1);
+    assert.equal(summaries[0]!.query.get("from"), "2026-10-27T00:00:00.000Z");
     assert.equal(res.json.totals.trips, 3);
   });
 

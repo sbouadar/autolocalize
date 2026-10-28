@@ -9,7 +9,7 @@ import type { VehicleMapProps } from "./vehicle-map-props";
 const EDGE_PADDING = { top: 60, right: 40, bottom: 60, left: 40 };
 
 /** Carte native (Apple Maps sur iOS, Google Maps sur Android). */
-export function VehicleMap({ vehicles, selectedId, onSelect, route }: VehicleMapProps) {
+export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor }: VehicleMapProps) {
   const branding = useBranding();
   const mapRef = useRef<MapView>(null);
   const fitted = useRef(false);
@@ -48,6 +48,7 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route }: VehicleMap
       toolbarEnabled={false}
     >
       {hasRoute ? <Polyline coordinates={route} strokeColor={branding.primaryColor} strokeWidth={4} /> : null}
+      {cursor ? <Marker coordinate={cursor} pinColor={branding.secondaryColor} title="Replay" tracksViewChanges={false} /> : null}
       {vehicles.map((v) => (
         <Marker
           key={v.id}

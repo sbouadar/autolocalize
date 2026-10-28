@@ -118,6 +118,22 @@ describe("TenantDetailScreen", () => {
       if (path === "/admin/tenants/t1" && !options?.method) return detail;
       if (path.startsWith("/admin/audit")) return { entries: [] };
       if (path.endsWith("/reset-password")) return { email: "alice@alpha.test", temporaryPassword: "Xyz23456789Abcde" };
+      if (path === "/admin/devices") {
+        return {
+          devices: [
+            { id: 7, name: "GPS libre", uniqueId: "111", status: "online", lastUpdate: null, disabled: false, assignment: null },
+            {
+              id: 1,
+              name: "GPS1",
+              uniqueId: "865190074141964",
+              status: "online",
+              lastUpdate: null,
+              disabled: false,
+              assignment: { vehicleId: "v9", vehicleName: "Camion démo", tenantId: "t9", tenantName: "Démo Transport" },
+            },
+          ],
+        };
+      }
       return {};
     });
   });
@@ -158,6 +174,24 @@ describe("TenantDetailScreen", () => {
     await screen.findByText("Alpha");
     await fireEvent.press(screen.getByRole("button", { name: "Retirer Camion 1" }));
     await waitFor(() => expect(mockApi).toHaveBeenCalledWith("/admin/vehicles/v1", { method: "DELETE" }));
+  });
+
+  it("montre les traceurs déjà affectés et affecte un traceur libre", async () => {
+    await render(<TenantDetailScreen id="t1" />);
+    await screen.findByText("Alpha");
+    await fireEvent.press(screen.getByRole("button", { name: "Affecter un traceur" }));
+    expect(await screen.findByLabelText("GPS1, déjà affecté à Démo Transport")).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /^GPS1,/ })).toBeNull();
+
+    await fireEvent.changeText(screen.getByLabelText("Nom du véhicule"), "Camion 2");
+    await fireEvent.press(screen.getByRole("radio", { name: "GPS libre, IMEI 111" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Affecter le traceur" }));
+    await waitFor(() =>
+      expect(mockApi).toHaveBeenCalledWith("/admin/tenants/t1/vehicles", {
+        method: "POST",
+        body: { name: "Camion 2", plate: null, traccarDeviceId: 7 },
+      }),
+    );
   });
 
   it("affecte un nouveau traceur par IMEI", async () => {

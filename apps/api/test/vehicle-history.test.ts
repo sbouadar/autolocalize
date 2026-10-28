@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 import { prisma } from "../src/lib/prisma.js";
+import { clampToAssignment } from "../src/lib/period.js";
 import { downsample } from "../src/routes/vehicles.js";
 import { device, position } from "./fake-traccar.js";
 import { call, createTenant, createUser, login, resetState, setup } from "./helpers.js";
@@ -23,8 +24,8 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
     const a = await createTenant("alpha");
     const b = await createTenant("bravo");
     await createUser("alice@alpha.test", "TENANT_ADMIN", a.id);
-    mine = (await prisma.vehicle.create({ data: { tenantId: a.id, traccarDeviceId: 1, name: "A", createdAt: ASSIGNED } })).id;
-    theirs = (await prisma.vehicle.create({ data: { tenantId: b.id, traccarDeviceId: 2, name: "B", createdAt: ASSIGNED } })).id;
+    mine = (await prisma.vehicle.create({ data: { tenantId: a.id, traccarDeviceId: 1, name: "A", historyStartAt: ASSIGNED } })).id;
+    theirs = (await prisma.vehicle.create({ data: { tenantId: b.id, traccarDeviceId: 2, name: "B", historyStartAt: ASSIGNED } })).id;
     ctx.traccar.devices = [device({ id: 1 }), device({ id: 2 })];
     ctx.traccar.positions = [position({ deviceId: 1 }), position({ deviceId: 2 })];
     ctx.traccar.reports.trips = [
@@ -121,29 +122,14 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
     );
   });
 
-  it("ne montre jamais l'historique d'avant l'affectation du traceur au client (réaffectation)", async () => {
-    // Le traceur a été affecté à ce client le 27 à midi : la matinée appartient à l'ancien client.
-    const assignedAt = new Date("2026-10-27T12:00:00Z");
-    await prisma.vehicle.update({ where: { id: mine }, data: { createdAt: assignedAt } });
+  it("montre tout l'historique Traccar, même antérieur à l'affectation (limite désactivée)", async () => {
+    await prisma.vehicle.update({ where: { id: mine }, data: { historyStartAt: new Date("2026-10-27T12:00:00Z") } });
     ctx.traccar.requests = [];
-
-    const trips = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
-    assert.equal(trips.status, 200);
-    const route = await call(ctx.app, "GET", `/api/vehicles/${mine}/route?${range}`, alice);
-    assert.equal(route.status, 200);
+    assert.equal((await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice)).status, 200);
+    assert.equal((await call(ctx.app, "GET", `/api/vehicles/${mine}/route?${range}`, alice)).status, 200);
     const sent = ctx.traccar.requests.filter((r) => r.path.startsWith("/api/reports/"));
     assert.equal(sent.length, 2);
-    for (const r of sent) assert.equal(r.query.get("from"), assignedAt.toISOString(), r.path);
-
-    // Période entièrement antérieure à l'affectation : rien, et Traccar n'est même pas interrogé.
-    ctx.traccar.requests = [];
-    const before = `from=${encodeURIComponent("2026-10-26T00:00:00Z")}&to=${encodeURIComponent("2026-10-27T12:00:00Z")}`;
-    assert.deepEqual((await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${before}`, alice)).json, { trips: [] });
-    assert.deepEqual((await call(ctx.app, "GET", `/api/vehicles/${mine}/route?${before}`, alice)).json, {
-      truncated: false,
-      points: [],
-    });
-    assert.equal(ctx.traccar.requests.filter((r) => r.path.startsWith("/api/reports/")).length, 0);
+    for (const r of sent) assert.equal(r.query.get("from"), "2026-10-27T00:00:00.000Z", r.path);
   });
 
   it("répond 503 sans détail interne si Traccar est en panne", async () => {
@@ -151,6 +137,18 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
     const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
     assert.equal(res.status, 503);
     assert.doesNotMatch(res.body, /NullPointer|java/);
+  });
+});
+
+describe("clampToAssignment (si la limite est réactivée)", () => {
+  const period = { from: new Date("2026-10-27T00:00:00Z"), to: new Date("2026-10-28T00:00:00Z") };
+  it("borne au début d'historique, ou ne renvoie rien si tout est antérieur", () => {
+    assert.deepEqual(clampToAssignment(period, new Date("2026-10-27T12:00:00Z"), true), {
+      from: new Date("2026-10-27T12:00:00Z"),
+      to: period.to,
+    });
+    assert.equal(clampToAssignment(period, new Date("2026-10-28T00:00:00Z"), true), null);
+    assert.deepEqual(clampToAssignment(period, new Date("2026-10-27T12:00:00Z"), false), period);
   });
 });
 

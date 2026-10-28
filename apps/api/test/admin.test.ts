@@ -274,6 +274,32 @@ describe("Back-office : traceurs", () => {
     assert.equal(dup.status, 409);
   });
 
+  it("fixe la date de début d'historique à l'affectation, puis la modifie", async () => {
+    const before = Date.now();
+    const plain = await call(ctx.app, "POST", `/api/admin/tenants/${alphaId}/vehicles`, root, { name: "A", traccarDeviceId: 1 });
+    assert.ok(Date.parse(plain.json.vehicle.historyStartAt) >= before - 1000, "par défaut : maintenant");
+
+    const start = "2026-10-01T00:00:00.000Z";
+    const backdated = await call(ctx.app, "POST", `/api/admin/tenants/${alphaId}/vehicles`, root, {
+      name: "B",
+      traccarDeviceId: 2,
+      historyStartAt: start,
+    });
+    assert.equal(backdated.status, 201);
+    assert.equal(backdated.json.vehicle.historyStartAt, start);
+
+    const id = plain.json.vehicle.id;
+    const moved = await call(ctx.app, "PUT", `/api/admin/vehicles/${id}`, root, { historyStartAt: "2026-10-20T08:00:00+02:00" });
+    assert.equal(moved.status, 200);
+    assert.equal(moved.json.vehicle.historyStartAt, "2026-10-20T06:00:00.000Z");
+
+    for (const bad of ["2099-01-01T00:00:00Z", "2000-01-01T00:00:00Z", "hier"]) {
+      assert.equal((await call(ctx.app, "PUT", `/api/admin/vehicles/${id}`, root, { historyStartAt: bad })).status, 400, bad);
+    }
+    // Le client ne peut pas la modifier.
+    assert.equal((await call(ctx.app, "PUT", `/api/admin/vehicles/${id}`, alice, { historyStartAt: start })).status, 403);
+  });
+
   it("n'affecte rien si Traccar est en panne", async () => {
     ctx.traccar.down = true;
     const res = await call(ctx.app, "POST", `/api/admin/tenants/${alphaId}/vehicles`, root, { name: "X", traccarDeviceId: 1 });

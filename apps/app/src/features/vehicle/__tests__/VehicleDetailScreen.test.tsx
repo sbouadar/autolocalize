@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { ApiError } from "@/lib/api";
 import type { Trip, Vehicle } from "@/lib/types";
 import { VehicleDetailScreen } from "../VehicleDetailScreen";
@@ -9,7 +9,7 @@ let mockTrips: Query;
 let mockRoute: Query;
 const mockTripsCalls: unknown[] = [];
 const mockBack = jest.fn();
-let mockMapProps: { route?: unknown[] } = {};
+let mockMapProps: { route?: unknown[]; vehicles?: unknown[]; cursor?: { latitude: number } | null } = {};
 
 jest.mock("@/lib/vehicles", () => ({
   ...jest.requireActual("@/lib/vehicles"),
@@ -23,8 +23,9 @@ jest.mock("@/lib/vehicles", () => ({
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: mockBack, canGoBack: () => true, replace: jest.fn() }),
 }));
+jest.mock("../EngineCard", () => ({ EngineCard: () => null }));
 jest.mock("../../map/VehicleMap", () => ({
-  VehicleMap: (props: { route?: unknown[] }) => {
+  VehicleMap: (props: typeof mockMapProps) => {
     mockMapProps = props;
     return null;
   },
@@ -60,7 +61,7 @@ const trip = (start: string, end: string, distanceKm: number): Trip => ({
   end: { latitude: 0, longitude: 0, address: null },
 });
 
-const point = (fixTime: string) => ({ latitude: 33, longitude: -7, speedKmh: 10, fixTime });
+const point = (fixTime: string, latitude = 33) => ({ latitude, longitude: -7, speedKmh: 10, fixTime });
 
 const ok = (data: unknown): Query => ({ data, isPending: false, isError: false, error: null, refetch: jest.fn() });
 
@@ -75,7 +76,7 @@ beforeEach(() => {
   });
   mockRoute = ok({
     truncated: false,
-    points: [point("2026-10-28T08:10:00Z"), point("2026-10-28T09:10:00Z"), point("2026-10-28T09:20:00Z")],
+    points: [point("2026-10-28T08:10:00Z", 33), point("2026-10-28T09:10:00Z", 34), point("2026-10-28T09:20:00Z", 35)],
   });
 });
 
@@ -95,6 +96,35 @@ describe("VehicleDetailScreen", () => {
     expect(screen.getByLabelText(/^Distance : 52,3\s?km$/)).toBeTruthy();
     expect(screen.getByLabelText("Temps de conduite : 1 h 30")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: /^Trajet / })).toHaveLength(2);
+  });
+
+  it("rejoue la période : le marqueur avance, se met en pause et disparaît à la fermeture", async () => {
+    jest.useFakeTimers();
+    try {
+      await render(<VehicleDetailScreen id="v1" />);
+      await fireEvent.press(screen.getByRole("button", { name: "Rejouer la période" }));
+      expect(mockMapProps.vehicles).toHaveLength(0); // position en direct masquée pendant le replay
+      const start = mockMapProps.cursor!.latitude;
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000); // 10 ticks à ×60 : 1 minute de trajet
+      });
+      expect(mockMapProps.cursor).not.toBeNull();
+      expect(mockMapProps.cursor!.latitude).not.toBe(start);
+
+      await fireEvent.press(screen.getByRole("button", { name: "Pause" }));
+      const paused = mockMapProps.cursor!.latitude;
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(mockMapProps.cursor!.latitude).toBe(paused);
+
+      await fireEvent.press(screen.getByRole("button", { name: "Fermer le replay" }));
+      expect(mockMapProps.cursor).toBeNull();
+      expect(mockMapProps.vehicles).toHaveLength(1);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("isole le trajet choisi sur la carte, puis revient au tracé complet", async () => {

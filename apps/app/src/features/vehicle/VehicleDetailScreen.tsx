@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button } from "@/components/Button";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatTile } from "@/components/StatTile";
 import { Banner, EmptyState, ErrorState, LoadingState } from "@/components/States";
@@ -8,6 +9,7 @@ import { ApiError, userMessage } from "@/lib/api";
 import { useBranding } from "@/lib/branding-context";
 import { formatCoordinates, formatDateTime, formatDistance, formatDuration, formatSpeed } from "@/lib/format";
 import { PERIODS, periodRange, type PeriodKey } from "@/lib/period";
+import type { ReplayFrame } from "@/lib/replay";
 import { colors, radius, spacing } from "@/lib/theme";
 import { pointsDuring, tripTotals } from "@/lib/trips";
 import { useDocumentTitle } from "@/lib/use-document-title";
@@ -23,9 +25,12 @@ import {
   vehicleStatus,
 } from "@/lib/vehicles";
 import { VehicleMap } from "../map/VehicleMap";
+import { EngineCard } from "./EngineCard";
+import { ReplayControls } from "./ReplayControls";
 import { TripList } from "./TripList";
 
 const noop = () => {};
+const NO_VEHICLES: never[] = [];
 
 function BackLink() {
   const router = useRouter();
@@ -64,10 +69,15 @@ export function VehicleDetailScreen({ id }: { id: string }) {
     return trip ? pointsDuring(points, trip) : points;
   }, [routeQuery.data, trips, selectedTrip]);
   const mapVehicles = useMemo(() => (vehicle && hasPosition(vehicle) ? [vehicle] : []), [vehicle]);
+  const [replaying, setReplaying] = useState(false);
+  const [frame, setFrame] = useState<ReplayFrame | null>(null);
+  // Le replay repart du début dès que le tracé change (autre trajet, autre période).
+  const routeKey = `${route.length}-${route[0]?.fixTime ?? ""}-${route.at(-1)?.fixTime ?? ""}`;
 
   const changePeriod = (key: PeriodKey) => {
     setPeriodKey(key);
     setSelectedTrip(null);
+    setReplaying(false);
   };
 
   if (vehicleQuery.isPending) return <LoadingState />;
@@ -114,13 +124,36 @@ export function VehicleDetailScreen({ id }: { id: string }) {
         ))}
       </View>
 
+      <EngineCard vehicle={vehicle} />
+
       {vehicleQuery.data?.liveDataAvailable === false ? (
         <Banner message="Suivi en direct momentanément indisponible : position et statut ne peuvent pas être affichés." />
       ) : null}
 
       <View style={styles.map}>
-        <VehicleMap vehicles={mapVehicles} selectedId={null} onSelect={noop} route={route} />
+        <VehicleMap
+          vehicles={replaying ? NO_VEHICLES : mapVehicles}
+          selectedId={null}
+          onSelect={noop}
+          route={route}
+          cursor={replaying ? frame : null}
+        />
       </View>
+      {replaying ? (
+        <ReplayControls
+          key={routeKey}
+          points={route}
+          withDay={periodKey === "week"}
+          onFrame={setFrame}
+          onClose={() => setReplaying(false)}
+        />
+      ) : route.length > 1 ? (
+        <Button
+          label={selectedTrip != null ? "Rejouer ce trajet" : "Rejouer la période"}
+          variant="secondary"
+          onPress={() => setReplaying(true)}
+        />
+      ) : null}
 
       <Text style={styles.section}>Historique</Text>
       <SegmentedControl options={PERIODS} value={periodKey} onChange={changePeriod} />

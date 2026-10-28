@@ -45,12 +45,28 @@ const createTenantBody = z
 
 const updateTenantBody = brandingBody.extend({ status: z.enum(["ACTIVE", "SUSPENDED", "CANCELLED"]).optional() }).strict();
 
+const HISTORY_MAX_YEARS = 5;
+
+/**
+ * Début de l'historique visible par le client. Le super-admin l'avance quand le traceur est neuf
+ * ou déjà chez ce client ; il ne doit jamais couvrir une période où le traceur était chez un autre.
+ */
+const historyStartAt = z.iso
+  .datetime({ offset: true })
+  .transform((v) => new Date(v))
+  .refine((d) => d.getTime() <= Date.now() + 60_000, "La date de début d'historique ne peut pas être dans le futur")
+  .refine(
+    (d) => d.getTime() >= Date.now() - HISTORY_MAX_YEARS * 365 * 86_400_000,
+    `La date de début d'historique ne peut pas remonter à plus de ${HISTORY_MAX_YEARS} ans`,
+  );
+
 const assignVehicleBody = z
   .object({
     name: z.string().trim().min(1).max(191),
     plate: z.string().trim().max(32).nullable().optional().transform((v) => (v ? v : null)),
     traccarDeviceId: z.number().int().positive().optional(),
     imei: z.string().trim().regex(/^[0-9A-Za-z]{5,32}$/, "Identifiant de traceur invalide").optional(),
+    historyStartAt: historyStartAt.optional(),
   })
   .strict()
   .refine((b) => (b.traccarDeviceId === undefined) !== (b.imei === undefined), {
@@ -61,6 +77,7 @@ const updateVehicleBody = z
   .object({
     name: z.string().trim().min(1).max(191),
     plate: z.string().trim().max(32).nullable().transform((v) => (v ? v : null)),
+    historyStartAt,
   })
   .partial()
   .strict();
@@ -198,7 +215,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
               orderBy: { createdAt: "asc" },
             },
             vehicles: {
-              select: { id: true, name: true, plate: true, traccarDeviceId: true, createdAt: true },
+              select: { id: true, name: true, plate: true, traccarDeviceId: true, historyStartAt: true, createdAt: true },
               orderBy: { name: "asc" },
             },
           },
@@ -351,7 +368,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     let vehicle;
     try {
       vehicle = await prisma.vehicle.create({
-        data: { tenantId: tenant.id, traccarDeviceId: deviceId, name: body.name, plate: body.plate },
+        data: { tenantId: tenant.id, traccarDeviceId: deviceId, name: body.name, plate: body.plate, ...(body.historyStartAt && { historyStartAt: body.historyStartAt }) },
       });
     } catch (err) {
       if (isUniqueViolation(err)) return reply.conflict("Ce traceur est déjà affecté à un véhicule");
@@ -372,7 +389,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     await audit(request, "vehicle.assign", {
       tenantId: tenant.id,
       targetId: vehicle.id,
-      details: { traccarDeviceId: deviceId, name: vehicle.name, plate: vehicle.plate, created: body.imei !== undefined },
+      details: { traccarDeviceId: deviceId, name: vehicle.name, plate: vehicle.plate, created: body.imei !== undefined, historyStartAt: vehicle.historyStartAt.toISOString() },
     });
     return reply.code(201).send({ vehicle });
   });
@@ -390,18 +407,16 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // Retire un traceur d'un client : le véhicule disparaît de l'application, l'appareil reste dans Traccar.
+  // Le journal des commandes moteur est conservé (lien vidé, nom et traceur gardés en copie).
   app.delete("/admin/vehicles/:id", async (request, reply) => {
     const id = parseId(request);
     const vehicle = id
       ? await prisma.vehicle.findUnique({
           where: { id },
-          select: { id: true, tenantId: true, name: true, traccarDeviceId: true, _count: { select: { commandLog: true } } },
+          select: { id: true, tenantId: true, name: true, traccarDeviceId: true },
         })
       : null;
     if (!vehicle) return reply.notFound();
-    if (vehicle._count.commandLog > 0) {
-      return reply.conflict("Ce véhicule a un historique de commandes moteur : il ne peut pas être retiré");
-    }
 
     await prisma.vehicle.delete({ where: { id: vehicle.id } });
     try {

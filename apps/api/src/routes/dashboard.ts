@@ -32,7 +32,7 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
     // d'un ancien client) : un appel Traccar par date de début distincte, en général un seul.
     const windows = new Map<number, { from: Date; deviceIds: number[] }>();
     for (const r of rows) {
-      const own = clampToAssignment(period, r.createdAt);
+      const own = clampToAssignment(period, r.historyStartAt);
       if (!own) continue;
       const key = own.from.getTime();
       const window = windows.get(key) ?? { from: own.from, deviceIds: [] };

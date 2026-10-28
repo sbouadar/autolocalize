@@ -13,11 +13,19 @@ export interface Period {
 }
 
 /**
- * Un traceur peut être retiré à un client puis affecté à un autre : l'historique visible commence
- * à son affectation au client actuel, jamais avant (sinon fuite de données de l'ancien client).
- * Renvoie null si la période est entièrement antérieure à l'affectation.
+ * Désactivé à la demande de l'utilisateur (2026-10-29) : le client voit tout l'historique Traccar du
+ * traceur. Risque connu : un traceur réaffecté montre au nouveau client les trajets de l'ancien
+ * (données personnelles). Passer à true pour borner l'historique à vehicles.historyStartAt.
  */
-export function clampToAssignment(period: Period, assignedAt: Date): Period | null {
+export const LIMIT_HISTORY_TO_ASSIGNMENT = false;
+
+/**
+ * Un traceur peut être retiré à un client puis affecté à un autre : quand la limite est active,
+ * l'historique visible commence à historyStartAt (par défaut l'affectation au client actuel).
+ * Renvoie null si la période est entièrement antérieure à cette date.
+ */
+export function clampToAssignment(period: Period, assignedAt: Date, enabled = LIMIT_HISTORY_TO_ASSIGNMENT): Period | null {
+  if (!enabled) return period;
   const from = period.from < assignedAt ? assignedAt : period.from;
   return from < period.to ? { from, to: period.to } : null;
 }

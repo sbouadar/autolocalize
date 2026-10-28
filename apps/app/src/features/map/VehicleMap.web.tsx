@@ -51,7 +51,7 @@ function BackgroundClick({ onSelect }: Pick<VehicleMapProps, "onSelect">) {
 }
 
 /** Carte web (Leaflet + tuiles raster). */
-export function VehicleMap({ vehicles, selectedId, onSelect, route }: VehicleMapProps) {
+export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor }: VehicleMapProps) {
   const branding = useBranding();
   const line = useMemo(() => route?.map((p): [number, number] => [p.latitude, p.longitude]), [route]);
 
@@ -66,6 +66,14 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route }: VehicleMap
       <BackgroundClick onSelect={onSelect} />
       {line && line.length > 1 ? (
         <Polyline positions={line} pathOptions={{ color: branding.primaryColor, weight: 4, opacity: 0.85 }} />
+      ) : null}
+      {cursor ? (
+        <CircleMarker
+          center={[cursor.latitude, cursor.longitude]}
+          radius={9}
+          interactive={false}
+          pathOptions={{ color: "#FFFFFF", weight: 3, fillColor: branding.secondaryColor, fillOpacity: 1 }}
+        />
       ) : null}
       {vehicles.map((v) => {
         const isSelected = v.id === selectedId;

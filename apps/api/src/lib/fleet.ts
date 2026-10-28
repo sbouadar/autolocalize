@@ -2,15 +2,15 @@ import type { FastifyBaseLogger } from "fastify";
 import type { CurrentUser } from "../plugins/auth-context.js";
 import { knotsToKmh, traccar, type TraccarDevice, type TraccarPosition } from "./traccar.js";
 
-// createdAt = date d'affectation du traceur au client : borne l'historique visible (voir period.ts).
-export const vehicleSelect = { id: true, tenantId: true, name: true, plate: true, traccarDeviceId: true, createdAt: true } as const;
+// historyStartAt = début de l'historique visible par le client (par défaut l'affectation) : voir period.ts.
+export const vehicleSelect = { id: true, tenantId: true, name: true, plate: true, traccarDeviceId: true, historyStartAt: true } as const;
 export type VehicleRow = {
   id: string;
   tenantId: string;
   name: string;
   plate: string | null;
   traccarDeviceId: number;
-  createdAt: Date;
+  historyStartAt: Date;
 };
 
 /** Restriction par client : le super-admin voit tout, les autres uniquement leur tenant. */
