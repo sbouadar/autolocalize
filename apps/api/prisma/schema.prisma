@@ -59,6 +59,8 @@ model User {
   tenantId         String?
   traccarUserId    Int?      // utilisateur Traccar lié, si besoin
   twoFactorEnabled Boolean?  @default(false)
+  // Mot de passe provisoire (créé ou réinitialisé par le super-admin) : à changer avant tout accès.
+  mustChangePassword Boolean @default(false)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -68,6 +70,7 @@ model User {
   twoFactors  TwoFactor[]
   pushTokens  PushToken[]
   commandLog  CommandLog[]
+  auditLog    AuditLog[]
 
   @@index([tenantId])
   @@map("user")
@@ -186,6 +189,26 @@ model CommandLog {
   @@index([tenantId, createdAt])
   @@index([vehicleId, createdAt])
   @@map("command_log")
+}
+
+// ─── Journal d'audit du back-office ───────────────────────────────────────────
+
+// Actions d'administration (clients, traceurs, comptes, branding). Jamais de secret dans details.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String   @db.VarChar(64)  // ex. tenant.create, vehicle.assign
+  tenantId   String?  @db.VarChar(64)  // client concerné (pas de clé étrangère : le journal survit)
+  targetId   String?  @db.VarChar(64)
+  details    String?  @db.Text         // JSON
+  ipAddress  String?  @db.VarChar(64)
+  createdAt  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([createdAt])
+  @@map("audit_log")
 }
 
 // ─── Notifications push ───────────────────────────────────────────────────────

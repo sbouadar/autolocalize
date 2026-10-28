@@ -10,7 +10,7 @@ export const auth = betterAuth({
   baseURL: config.PUBLIC_URL,
   basePath: "/api/auth",
   secret: config.BETTER_AUTH_SECRET,
-  trustedOrigins: [config.PUBLIC_URL],
+  trustedOrigins: [config.PUBLIC_URL, ...config.CORS_ORIGINS],
   database: prismaAdapter(prisma, { provider: "mysql" }),
   emailAndPassword: {
     enabled: true,
@@ -29,7 +29,8 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24,
   },
   rateLimit: {
-    enabled: true,
+    // Désactivé uniquement pour les tests automatisés, qui enchaînent les connexions.
+    enabled: config.NODE_ENV !== "test",
     window: 60,
     max: 100,
     customRules: {
@@ -38,6 +39,10 @@ export const auth = betterAuth({
   },
   advanced: {
     useSecureCookies: isProduction,
+    // Limitation de débit par IP réelle : Nginx écrase X-Real-IP avec l'adresse du client
+    // (deploy/nginx/autolocalize.conf) et l'API n'écoute que sur 127.0.0.1. X-Forwarded-For,
+    // complété par le client, mettrait toutes les requêtes dans un même compteur.
+    ipAddress: { ipAddressHeaders: ["x-real-ip"] },
   },
   // bearer : l'application mobile envoie le jeton de session en en-tête.
   plugins: [twoFactor({ issuer: "AutoLocalize" }), bearer()],

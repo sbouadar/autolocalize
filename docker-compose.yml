@@ -9,3 +9,9 @@ services:
     # Réseau de l'hôte : le conteneur joint Traccar (127.0.0.1:8082) et MySQL sur la boucle locale,
     # et n'écoute lui-même que sur 127.0.0.1:${PORT}, derrière Nginx.
     network_mode: host
+    # Logos téléversés depuis le back-office : conservés d'un déploiement à l'autre.
+    volumes:
+      - logos:/app/apps/api/data/logos
+
+volumes:
+  logos:

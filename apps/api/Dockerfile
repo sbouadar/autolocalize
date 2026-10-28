@@ -23,6 +23,8 @@ COPY --from=build /app/apps/api/package.json /app/apps/api/prisma.config.ts ./ap
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 WORKDIR /app/apps/api
+# Logos des clients (LOGO_DIR=data/logos) : volume Docker, créé ici pour appartenir à « node ».
+RUN mkdir -p data/logos && chown -R node:node data
 USER node
 # Applique les migrations en attente puis démarre le serveur.
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

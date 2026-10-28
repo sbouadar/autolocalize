@@ -8,6 +8,9 @@ Projet de service de suivi GPS de véhicules à commercialiser, construit au-des
 - Avant de donner des commandes ou des versions précises (paquets, images Docker, bibliothèques), vérifier qu'elles sont à jour.
 - Poser une seule question à la fois quand une précision est nécessaire.
 - Ne jamais lire, afficher ni committer `passwords.txt` ni aucun secret (clé du compte de service Traccar, mots de passe de base, `.env`).
+- **Aucun commit, push, déploiement en production ni action irréversible sans accord explicite de l'utilisateur** (consigne du 2026-10-27). Présenter le bilan d'une tranche, puis demander.
+- Travailler par tranches : audit → plan validé → implémentation incrémentale ; typecheck, tests et lint avant de déclarer une tranche terminée ; ne jamais annoncer un test non exécuté.
+- N'inventer aucun endpoint : si une fonction manque côté API, documenter le contrat proposé.
 - Mettre à jour ce fichier dès qu'une décision est prise ou qu'un état de l'infrastructure change (section « État de l'infrastructure »).
 
 ## Dépôt
@@ -46,6 +49,7 @@ Commandes (depuis `apps/api`, Node 24 actif) :
 - `npm run prisma:migrate -- --name <nom>` : nouvelle migration (Prisma 7 ne régénère plus le client tout seul : le script enchaîne `prisma generate`)
 - `npm run seed` (variables `SEED_*`, voir l'en-tête de `src/scripts/seed.ts`) ; en prod : `docker compose exec -e SEED_…=… api node dist/scripts/seed.js`
 - `npm run dev` : serveur en rechargement auto ; `npm run typecheck`
+- Le projet reste sur le disque Windows (`/mnt/c/...`, choix de l'utilisateur du 2026-10-28) : npm, Metro et Jest y sont lents depuis WSL (installation complète ≈ 7 min). Éviter les réinstallations complètes (`rm -rf node_modules`) sauf nécessité, et lancer les longues commandes en arrière-plan.
 - En local, le port 3000 est déjà pris par une autre application : le `.env` de dev utilise **3100**.
 
 Points de conception :
@@ -187,4 +191,45 @@ Ensuite : KPI et trajets, commandes moteur, notifications push (cf. section 9).
 
 Petits restes d'infra : MariaDB en `bind-address=127.0.0.1` ; masquer les traces Java de Traccar ; mise à jour Traccar 6.16.0.
 
-Prochaine étape à choisir : phase 2 (back-office : super-admin + branding modifiable) ou phase 3 (application Expo : connexion, thème, carte).
+**Phase 3 en cours** (application client Expo, `apps/app`) — plan validé le 2026-10-27. Le back-office (phase 2) viendra après ; l'app prévoit déjà les champs du BO avec des valeurs de secours.
+
+Tranches : 1. fondations + connexion (session, 401, branding, `/login/[slug]`, CORS dev, outils de test/lint) — 2. carte + liste associée — 3. fiche véhicule — 4. tableau de bord — 5. liste (recherche, filtres, tri) — 6. profil — 7. build web de prod (déploiement sur accord) puis test natif via Expo Go.
+
+### Reprise (état au 2026-10-28)
+
+- **Où est le travail** : directement dans `traccar/`, sur `main` (consigne de l'utilisateur du 2026-10-28 : **pas de worktree ni de copie temporaire**, travailler dans `traccar/`). Le travail fait dans un worktree a été rapatrié puis le worktree supprimé. **Commité et poussé sur `main` le 2026-10-28** en un seul commit, à la demande explicite de l'utilisateur. Non déployé.
+- **Fait et vérifié dans `traccar/`** : tranches 1 à 6 + back-office + correctifs de la relecture de sécurité. API : typecheck, 40/40 tests, build OK. App : typecheck, lint, 90/90 tests, exports web et Android OK. Rien n'est testé à l'œil (navigateur, Expo Go) ni contre le vrai Traccar.
+- Piège : `apps/app/.expo/types/router.d.ts` (cache des routes typées, ignoré par git) est régénéré par `expo start` ; s'il date d'une ancienne version des routes, `tsc` refuse les nouvelles (`/admin`, `/vehicles/[id]`) : le supprimer.
+- Piège : la CLI Expo a un jour ajouté d'elle-même `"extends": "expo/tsconfig.base"` à `apps/api/tsconfig.json` ; cela casse l'API : à refuser s'il réapparaît.
+- **Lancer en local** (une commande par bloc, Node 24) :
+  - API : dans `apps/api`, vérifier que `.env` contient `PORT=3100` et `CORS_ORIGINS=http://localhost:8081`, puis `npx prisma migrate deploy` (applique la migration `backoffice` sur la base de dev `traccar-db-1`, pas encore fait), puis `npm run dev`.
+  - App : dans `apps/app` (pas à la racine : sinon Expo cherche `expo/AppEntry`), `EXPO_PUBLIC_API_URL=http://localhost:3100 npx expo start --web --clear`. Sans `EXPO_PUBLIC_API_URL`, l'app web appelle `/api` sur le serveur Expo, qui renvoie du HTML.
+- **Base de test des tests d'API** : conteneur `autolocalize-wt-test` (port 3317), à démarrer avec `docker start autolocalize-wt-test` avant `npm test` dans `apps/api`.
+- **Prochaines étapes** : 1) appliquer la migration sur la base de dev ; 2) test local par l'utilisateur (créer un client, mot de passe provisoire, affecter GPS1, carte, fiche, tableau de bord, logo) ; 3) déploiement sur accord : sauvegarde de la base, `git pull && docker compose up -d --build` (migration au démarrage, volume `logos`), vérifier les écritures Traccar de `bff-service`, servir le build web sur `autolocalize.net` (nouvelle config Nginx dans `deploy/`) ; 4) fournisseur de tuiles, restes d'infra, juridique ; 5) commandes moteur, temps réel, push, stores, `expo-image-picker`.
+
+État détaillé (2026-10-28) : tranches 1 à 6 et back-office écrits et vérifiés (typecheck, lint, tests, exports web et Android), en attente de validation et de commit.
+- Navigation : pile `(app)` (en-tête du client) contenant les onglets `(tabs)` — Tableau de bord (`/`), Carte (`/map`), Profil (`/profile`), via `expo-router/js-tabs` (`Tabs` de `expo-router` est déprécié en SDK 58) — et la fiche `/vehicles/[id]`.
+- Nouvelles routes API (préfixe `/api`) : `GET /vehicles/:id`, `GET /vehicles/:id/trips?from&to` (31 jours max), `GET /vehicles/:id/route?from&to` (7 jours max, 2000 points max), `GET /dashboard/kpis?from&to` (31 jours max ; synthèse + trajets Traccar, état de la flotte), `POST /me/password` (vérifie l'actuel, révoque les autres sessions). Un véhicule d'un autre client répond 404 comme un véhicule inexistant.
+- Tests d'intégration de l'API : `npm test` dans `apps/api` (`node:test` + `tsx`, Better Auth réel, faux Traccar sur le port 18082, `test/fake-traccar.ts`). Base MariaDB jetable requise : voir l'en-tête de `test/env.ts` (conteneur `autolocalize-wt-test`, port 3317). Le rate limit de Better Auth est désactivé quand `NODE_ENV=test`. `npm run typecheck` couvre aussi les tests (`tsconfig.test.json`).
+- Tranche 3 (fiche) : état, carte avec tracé de la période (Aujourd'hui / Hier / 7 jours), totaux, liste des trajets (un appui isole le trajet sur la carte). Tranche 4 : flotte en ce moment, activité de la période (jusqu'à 30 jours), classement des véhicules. Tranche 5 : recherche (sans accents ni séparateurs, nom ou plaque), filtre de statut, tri, appliqués à la liste et aux marqueurs. Tranche 6 : profil (compte, société, mot de passe, déconnexion).
+- Tranche 1 remise au vert : `"types": ["jest"]` dans `tsconfig.json` (TypeScript 6 ne charge plus les `@types` par défaut), variables des fabriques `jest.mock` préfixées `mock`, `render`/`fireEvent` attendus (`await`, RNTL 14 est asynchrone), `testTimeout` 20 s (premier rendu lent sur `/mnt/c`).
+- Tranche 2 : l'accueil (`/`) est la carte (`src/features/map`) en attendant le tableau de bord (tranche 4). Côte à côte au-delà de 900 px, onglets Carte / Liste en dessous. Rafraîchissement toutes les 10 s, cadrage sur la flotte au premier chargement seulement, centrage sur le véhicule sélectionné, résumé flottant (la fiche complète viendra en tranche 3). Bandeaux si Traccar est indisponible (`liveDataAvailable: false`) ou si un rafraîchissement échoue.
+- Carte : `VehicleMap.tsx` (natif, `react-native-maps` : Apple Maps / Google Maps, sans clé dans Expo Go) et `VehicleMap.web.tsx` (Leaflet ; CSS importé dans `src/app/_layout.tsx`).
+- À faire avant l'ouverture aux clients : fournisseur de tuiles web (les serveurs OSM, utilisés par défaut via `EXPO_PUBLIC_MAP_TILE_URL`, excluent un usage commercial à fort trafic) ; clé Google Maps Android/iOS (plugin `react-native-maps` dans `app.json`) pour les builds de store (tranche 7).
+- Décisions du 2026-10-28 pour la suite (tranches 3 à 6 puis back-office) :
+  - Routes d'historique et de KPI ajoutées dans `apps/api` à partir des rapports Traccar (`/api/reports/trips`, `/route`, `/summary`), filtrées par tenant, testées en local, non déployées sans accord. Commandes moteur hors périmètre pour l'instant.
+  - Back-office dans la même app Expo (web d'abord), sous `/admin`, réservé au `SUPER_ADMIN` : clients, traceurs, comptes. Sécurité contrôlée côté API (rôle relu en base, validation Zod, filtrage par tenant). Le compte client modifie seulement son propre branding.
+  - Logos : fichiers sur le disque du VPS (volume Docker) servis par l'API ; PNG, JPEG ou WebP, 512 Ko au maximum ; SVG refusé.
+  - Traceurs : choisir un appareil Traccar existant non affecté ou en créer un par IMEI ; un groupe Traccar créé automatiquement par client.
+  - **Un seul compte utilisateur par client** pour l'instant (`TENANT_ADMIN`), créé par le super-admin avec le client ; mot de passe provisoire affiché une fois, à changer à la première connexion (pas de SMTP).
+  - Migrations Prisma appliquées en local seulement ; la prod attend l'accord de déploiement.
+  - Suspension d'un client : statut différent de `ACTIVE` (accès coupé en 403), sans suppression.
+- **Back-office** (2026-10-28, écrit et testé, non déployé) :
+  - Migration `20261028003337_backoffice` : `user.mustChangePassword`, table `audit_log`. Appliquée seulement sur la base de test ; en prod, `prisma migrate deploy` s'exécute au démarrage du conteneur (au prochain déploiement, sur accord).
+  - API super-admin (`/api/admin/*`, `requireAuth` + `requireRole("SUPER_ADMIN")` sur tout le plugin) : `GET/POST /admin/tenants` (création du client + compte `TENANT_ADMIN` unique, mot de passe provisoire de 16 caractères renvoyé une seule fois, `Cache-Control: no-store`), `GET/PUT /admin/tenants/:id` (branding + statut), `POST/DELETE /admin/tenants/:id/logo`, `POST /admin/tenants/:id/reset-password` (ferme toutes les sessions), `GET /admin/devices` (appareils Traccar + affectation), `POST /admin/tenants/:id/vehicles` (appareil existant libre ou nouveau par IMEI ; groupe Traccar du client créé au premier traceur), `PUT/DELETE /admin/vehicles/:id` (retrait refusé s'il existe un historique de commandes), `GET /admin/audit?tenantId&limit`.
+  - API du compte client (`TENANT_ADMIN` uniquement, tenant tiré de la session) : `PUT /tenant/branding` (schéma strict : statut et slug refusés), `POST/DELETE /tenant/logo`. Logos servis par `GET /api/public/logos/<32 hex>.(png|jpg|webp)` ; type vérifié sur les octets ; SVG refusé ; dossier `LOGO_DIR` (défaut `data/logos`, volume Docker `logos` ajouté au `docker-compose.yml`, dossier créé dans l'image pour l'utilisateur `node`).
+  - Mot de passe provisoire : tant que `mustChangePassword` est vrai, l'API répond 403 `PASSWORD_CHANGE_REQUIRED` partout sauf `GET /me` et `POST /me/password` ; l'app affiche alors un écran dédié.
+  - App : lien « Administration » dans l'en-tête pour le super-admin ; `/admin` (clients), `/admin/tenants/new`, `/admin/tenants/[id]` (abonnement, traceurs, compte, branding, logo, journal du client), `/admin/audit`. L'admin du client modifie son branding depuis le Profil. Téléversement du logo sur le web uniquement (mobile : il faudrait `expo-image-picker`, non installé).
+  - Relecture de sécurité indépendante (2026-10-28) : aucune faille critique. Corrigé : l'historique (trajets, tracé, KPI) est borné à la date d'affectation du traceur au client (`vehicle.createdAt`, `clampToAssignment` dans `lib/period.ts`), sinon un traceur réaffecté montrait l'historique de l'ancien client ; limite de débit de Better Auth sur l'IP réelle (`ipAddressHeaders: ["x-real-ip"]`, posé par Nginx) ; création concurrente du groupe Traccar ; limite de 30 requêtes par minute sur les routes de rapports. Vérifié sûr : blocage du mot de passe provisoire, attribution de champs, logos (traversée de chemin, XSS), sessions, absence de secrets dans les logs et le journal.
+  - Au déploiement : vérifier que `bff-service` peut créer groupes et appareils dans Traccar (écriture jamais testée contre le vrai Traccar, seulement contre le faux de `test/fake-traccar.ts`).
+- Lancer les outils de l'app sans `nvm use` (non scriptable ici) : `PATH=~/.nvm/versions/node/v24.22.1/bin:$PATH npx …`.

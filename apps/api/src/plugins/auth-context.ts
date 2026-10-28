@@ -11,7 +11,11 @@ export interface CurrentUser {
   name: string;
   role: Role;
   tenantId: string | null;
+  mustChangePassword: boolean;
 }
+
+/** Routes accessibles avec un mot de passe provisoire (méthode + motif de route Fastify). */
+const PASSWORD_CHANGE_ALLOWED = new Set(["GET /api/me", "POST /api/me/password"]);
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -41,6 +45,7 @@ export default fp(async (app) => {
         name: true,
         role: true,
         tenantId: true,
+        mustChangePassword: true,
         tenant: { select: { status: true } },
       },
     });
@@ -51,12 +56,22 @@ export default fp(async (app) => {
       if (user.tenant.status !== "ACTIVE") return reply.forbidden("Abonnement suspendu");
     }
 
+    // Mot de passe provisoire : seuls la lecture du profil et le changement de mot de passe passent.
+    if (user.mustChangePassword && !PASSWORD_CHANGE_ALLOWED.has(`${request.method} ${request.routeOptions.url}`)) {
+      return reply.code(403).send({
+        statusCode: 403,
+        error: "Changez votre mot de passe provisoire pour continuer",
+        code: "PASSWORD_CHANGE_REQUIRED",
+      });
+    }
+
     request.currentUser = {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
       tenantId: user.tenantId,
+      mustChangePassword: user.mustChangePassword,
     };
   });
 

@@ -1,13 +1,17 @@
+import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import sensible from "@fastify/sensible";
 import Fastify from "fastify";
 import { config, isProduction } from "./config.js";
 import authContext from "./plugins/auth-context.js";
+import adminRoutes from "./routes/admin.js";
 import authRoutes from "./routes/auth.js";
+import dashboardRoutes from "./routes/dashboard.js";
 import healthRoutes from "./routes/health.js";
 import meRoutes from "./routes/me.js";
 import publicRoutes from "./routes/public.js";
+import tenantRoutes from "./routes/tenant.js";
 import vehicleRoutes from "./routes/vehicles.js";
 
 export async function buildApp() {
@@ -23,6 +27,14 @@ export async function buildApp() {
   });
 
   await app.register(helmet);
+  if (config.CORS_ORIGINS.length > 0) {
+    await app.register(cors, {
+      origin: config.CORS_ORIGINS,
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "DELETE"],
+      exposedHeaders: ["set-auth-token"],
+    });
+  }
   await app.register(sensible);
   await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
   await app.register(authContext);
@@ -45,6 +57,9 @@ export async function buildApp() {
       await api.register(publicRoutes);
       await api.register(meRoutes);
       await api.register(vehicleRoutes);
+      await api.register(dashboardRoutes);
+      await api.register(tenantRoutes);
+      await api.register(adminRoutes);
     },
     { prefix: "/api" },
   );

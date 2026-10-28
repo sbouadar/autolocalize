@@ -24,3 +24,6 @@ Thumbs.db
 
 # Client Prisma généré
 apps/api/src/generated/
+
+# Logos téléversés en local (LOGO_DIR)
+apps/api/data/
