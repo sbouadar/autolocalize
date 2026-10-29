@@ -254,16 +254,22 @@ export const knotsToKmh = (knots: number) => Math.round(knots * 1.852 * 10) / 10
 
 /** Au-delà de cette vitesse moyenne, la distance d'un trajet est un artefact (voir isPlausibleTrip). */
 const MAX_PLAUSIBLE_AVERAGE_KMH = 250;
+/** Écart toléré entre vitesse moyenne (distance / durée) et vitesse max relevée : bruit du GPS. */
+const AVERAGE_OVER_MAX_MARGIN_KMH = 30;
 
 /**
  * Traccar calcule la distance d'un trajet par différence de la distance cumulée des positions, qui
  * compte aussi les positions aberrantes : un traceur GT06 sans fix GPS envoie parfois le point 0,0,
- * soit environ 4 000 km de saut depuis le Maroc. Ces trajets ont une vitesse moyenne impossible ;
- * leur distance n'est ni affichée ni comptée. Depuis le 2026-10-29, Traccar rejette ces points
+ * soit environ 4 000 km de saut depuis le Maroc. Ces trajets ont une vitesse moyenne impossible
+ * (au-delà de 250 km/h, ou nettement au-dessus de la vitesse max relevée : 3 796 km en 16 h 52 avec
+ * un max à 0 km/h) ; leur distance n'est ni affichée ni comptée. Depuis le 2026-10-29, Traccar rejette ces points
  * (filter.zero) ; l'historique antérieur, lui, reste faussé.
  */
-export function isPlausibleTrip(trip: Pick<TraccarTrip, "distance" | "duration">): boolean {
+export function isPlausibleTrip(trip: Pick<TraccarTrip, "distance" | "duration" | "maxSpeed">): boolean {
   if (trip.distance <= 0) return true;
   if (trip.duration <= 0) return false;
-  return (trip.distance / trip.duration) * 3_600 <= MAX_PLAUSIBLE_AVERAGE_KMH;
+  const averageKmh = (trip.distance / trip.duration) * 3_600;
+  return (
+    averageKmh <= MAX_PLAUSIBLE_AVERAGE_KMH && averageKmh <= trip.maxSpeed * 1.852 + AVERAGE_OVER_MAX_MARGIN_KMH
+  );
 }

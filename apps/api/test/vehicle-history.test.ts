@@ -145,6 +145,20 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
     assert.equal(res.json.trips[0].maxSpeedKmh, 0);
   });
 
+  it("masque aussi un long trajet faussé dont la moyenne dépasse la vitesse max", async () => {
+    // Cas réel : 3 796 km en 16 h 52 (225 km/h de moyenne) avec un max à 0 km/h.
+    Object.assign(ctx.traccar.reports.trips[0]!, { distance: 3_796_300, duration: 60_720_000, averageSpeed: 121, maxSpeed: 0 });
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(res.json.trips[0].distanceKm, null);
+  });
+
+  it("garde un trajet normal dont la moyenne approche la vitesse max", async () => {
+    // 45 km en 30 min (90 km/h) avec un max relevé à 70 km/h : écart dans la marge du GPS.
+    Object.assign(ctx.traccar.reports.trips[0]!, { distance: 45_000, duration: 1_800_000, maxSpeed: 70 / 1.852 });
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(res.json.trips[0].distanceKm, 45);
+  });
+
   it("ne renvoie ni départ ni arrivée sans trajet", async () => {
     ctx.traccar.reports.trips = [];
     const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
