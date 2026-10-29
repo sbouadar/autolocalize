@@ -10,8 +10,8 @@ const trip = (overrides: Partial<Trip>): Trip => ({
   distanceKm: 12.3,
   averageSpeedKmh: 30,
   maxSpeedKmh: 80,
-  start: { latitude: 0, longitude: 0, address: null },
-  end: { latitude: 0, longitude: 0, address: null },
+  start: { latitude: 0, longitude: 0 },
+  end: { latitude: 0, longitude: 0 },
   ...overrides,
 });
 
@@ -24,6 +24,13 @@ describe("tripTotals", () => {
       maxSpeedKmh: 95.5,
     });
     expect(tripTotals([])).toEqual({ count: 0, distanceKm: 0, durationMs: 0, maxSpeedKmh: 0 });
+    // Distance non fiable (saut GPS) : comptée dans le nombre et la durée, pas dans la distance.
+    expect(tripTotals([trip({}), trip({ distanceKm: null, averageSpeedKmh: null })])).toEqual({
+      count: 2,
+      distanceKm: 12.3,
+      durationMs: 3_600_000,
+      maxSpeedKmh: 80,
+    });
   });
 });
 

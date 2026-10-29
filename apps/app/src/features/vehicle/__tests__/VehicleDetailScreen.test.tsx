@@ -57,8 +57,8 @@ const trip = (start: string, end: string, distanceKm: number): Trip => ({
   distanceKm,
   averageSpeedKmh: 30,
   maxSpeedKmh: 70,
-  start: { latitude: 0, longitude: 0, address: "Dépôt" },
-  end: { latitude: 0, longitude: 0, address: null },
+  start: { latitude: 0, longitude: 0 },
+  end: { latitude: 0, longitude: 0 },
 });
 
 const point = (fixTime: string, latitude = 33) => ({ latitude, longitude: -7, speedKmh: 10, fixTime });
@@ -73,6 +73,8 @@ beforeEach(() => {
       trip("2026-10-28T08:00:00Z", "2026-10-28T08:30:00Z", 12.3),
       trip("2026-10-28T09:00:00Z", "2026-10-28T10:00:00Z", 40),
     ],
+    departure: { latitude: 33.5, longitude: -7.6, address: "Dépôt" },
+    arrival: { latitude: 33.6, longitude: -7.5, address: null },
   });
   mockRoute = ok({
     truncated: false,
@@ -96,6 +98,23 @@ describe("VehicleDetailScreen", () => {
     expect(screen.getByLabelText(/^Distance : 52,3\s?km$/)).toBeTruthy();
     expect(screen.getByLabelText("Temps de conduite : 1 h 30")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: /^Trajet / })).toHaveLength(2);
+    // Adresses du premier départ et de la dernière arrivée seulement ; coordonnées à défaut.
+    expect(screen.getByText("Départ : Dépôt")).toBeTruthy();
+    expect(screen.getByText("Arrivée : 33.60000, -7.50000")).toBeTruthy();
+  });
+
+  it("signale un trajet dont la distance est faussée et ne la compte pas", async () => {
+    mockTrips = ok({
+      trips: [
+        trip("2026-10-28T08:00:00Z", "2026-10-28T08:30:00Z", 12.3),
+        { ...trip("2026-10-28T09:00:00Z", "2026-10-28T10:00:00Z", 0), distanceKm: null, averageSpeedKmh: null },
+      ],
+      departure: null,
+      arrival: null,
+    });
+    await render(<VehicleDetailScreen id="v1" />);
+    expect(screen.getByLabelText(/^Distance : 12,3\s?km$/)).toBeTruthy();
+    expect(screen.getByText("Distance non mesurable : position GPS aberrante pendant ce trajet.")).toBeTruthy();
   });
 
   it("rejoue la période : le marqueur avance, se met en pause et disparaît à la fermeture", async () => {
@@ -146,7 +165,7 @@ describe("VehicleDetailScreen", () => {
   });
 
   it("indique l'absence de trajet", async () => {
-    mockTrips = ok({ trips: [] });
+    mockTrips = ok({ trips: [], departure: null, arrival: null });
     await render(<VehicleDetailScreen id="v1" />);
     expect(screen.getByText("Aucun trajet sur cette période.")).toBeTruthy();
   });

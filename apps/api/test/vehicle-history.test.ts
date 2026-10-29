@@ -87,13 +87,68 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
         distanceKm: 12.3,
         averageSpeedKmh: 37,
         maxSpeedKmh: 92.6,
-        start: { latitude: 33.5, longitude: -7.6, address: "Départ" },
-        end: { latitude: 33.6, longitude: -7.5, address: null },
+        start: { latitude: 33.5, longitude: -7.6 },
+        end: { latitude: 33.6, longitude: -7.5 },
       },
     ]);
     const sent = ctx.traccar.requests.find((r) => r.path === "/api/reports/trips")!;
     assert.deepEqual(sent.query.getAll("deviceId"), ["1"]);
     assert.equal(sent.query.get("from"), "2026-10-27T00:00:00.000Z");
+  });
+
+  it("donne l'adresse du premier départ et de la dernière arrivée, avec un cache", async () => {
+    ctx.traccar.reports.trips.push({
+      deviceId: 1,
+      startTime: "2026-10-27T09:00:00.000+00:00",
+      endTime: "2026-10-27T09:20:00.000+00:00",
+      distance: 5_000,
+      averageSpeed: 15,
+      maxSpeed: 40,
+      duration: 1_200_000,
+      startLat: 33.6,
+      startLon: -7.5,
+      endLat: 33.70004,
+      endLon: -7.39996,
+      startAddress: null,
+      endAddress: null,
+    });
+    ctx.traccar.addresses = { "33.7,-7.4": "Boulevard Zerktouni, Casablanca" };
+
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.trips.length, 2);
+    // Adresse déjà fournie par Traccar pour le départ ; arrivée géocodée (coordonnées arrondies).
+    assert.deepEqual(res.json.departure, { latitude: 33.5, longitude: -7.6, address: "Départ" });
+    assert.deepEqual(res.json.arrival, { latitude: 33.70004, longitude: -7.39996, address: "Boulevard Zerktouni, Casablanca" });
+    const geocodes = () => ctx.traccar.requests.filter((r) => r.path === "/api/server/geocode").length;
+    assert.equal(geocodes(), 1);
+
+    await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(geocodes(), 1, "adresse servie par le cache");
+  });
+
+  it("renvoie les trajets sans adresse si le géocodeur n’en trouve pas", async () => {
+    ctx.traccar.reports.trips[0]!.startAddress = null;
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.trips.length, 1);
+    assert.equal(res.json.departure.address, null);
+    assert.equal(res.json.arrival.address, null);
+  });
+
+  it("masque la distance et la vitesse moyenne d'un trajet faussé par un saut au point 0,0", async () => {
+    Object.assign(ctx.traccar.reports.trips[0]!, { distance: 3_821_400, duration: 4_260_000, averageSpeed: 1734, maxSpeed: 0 });
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(res.json.trips[0].distanceKm, null);
+    assert.equal(res.json.trips[0].averageSpeedKmh, null);
+    assert.equal(res.json.trips[0].durationMs, 4_260_000);
+    assert.equal(res.json.trips[0].maxSpeedKmh, 0);
+  });
+
+  it("ne renvoie ni départ ni arrivée sans trajet", async () => {
+    ctx.traccar.reports.trips = [];
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.deepEqual(res.json, { trips: [], departure: null, arrival: null });
   });
 
   it("valide la période", async () => {
@@ -110,6 +165,9 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
     // Le tracé est limité à 7 jours.
     const week = await call(ctx.app, "GET", `/api/vehicles/${mine}/route?from=2026-10-01T00:00:00Z&to=2026-10-10T00:00:00Z`, alice);
     assert.equal(week.status, 400);
+    // « 7 jours » qui couvre le passage à l'heure d'hiver : 7 jours et quelques minutes, accepté.
+    const dst = await call(ctx.app, "GET", `/api/vehicles/${mine}/route?from=2026-10-22T22:00:00Z&to=2026-10-29T22:02:36Z`, alice);
+    assert.equal(dst.status, 200);
   });
 
   it("renvoie le tracé sans les positions invalides", async () => {

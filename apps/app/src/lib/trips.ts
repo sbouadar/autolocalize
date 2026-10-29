@@ -11,7 +11,8 @@ export function tripTotals(trips: Trip[]): TripTotals {
   return trips.reduce<TripTotals>(
     (acc, t) => ({
       count: acc.count + 1,
-      distanceKm: Math.round((acc.distanceKm + t.distanceKm) * 10) / 10,
+      // Un trajet dont la distance n'est pas fiable compte dans le nombre et la durée, pas dans la distance.
+      distanceKm: Math.round((acc.distanceKm + (t.distanceKm ?? 0)) * 10) / 10,
       durationMs: acc.durationMs + t.durationMs,
       maxSpeedKmh: Math.max(acc.maxSpeedKmh, t.maxSpeedKmh),
     }),

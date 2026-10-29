@@ -81,22 +81,32 @@ export const vehicleResponseSchema = z.object({
   vehicle: vehicleSchema,
 });
 
-const placeSchema = z.object({ latitude: z.number(), longitude: z.number(), address: nullableString });
+const pointSchema = z.object({ latitude: z.number(), longitude: z.number() });
+const placeSchema = pointSchema.extend({ address: nullableString });
+export type Place = z.infer<typeof placeSchema>;
 
 export const tripSchema = z.object({
   startTime: z.string(),
   endTime: z.string(),
   durationMs: z.number(),
-  distanceKm: z.number(),
-  averageSpeedKmh: z.number(),
+  /** null : distance faussée par une position GPS aberrante (saut au point 0,0), non comptée. */
+  distanceKm: z.number().nullable(),
+  averageSpeedKmh: z.number().nullable(),
   maxSpeedKmh: z.number(),
-  start: placeSchema,
-  end: placeSchema,
+  start: pointSchema,
+  end: pointSchema,
 });
 export type Trip = z.infer<typeof tripSchema>;
 
-/** GET /vehicles/:id/trips?from&to (31 jours au plus) */
-export const tripsResponseSchema = z.object({ trips: z.array(tripSchema) });
+/**
+ * GET /vehicles/:id/trips?from&to (31 jours au plus). Adresses du premier départ et de la dernière
+ * arrivée seulement (null si pas encore connues) ; departure et arrival sont null sans trajet.
+ */
+export const tripsResponseSchema = z.object({
+  trips: z.array(tripSchema),
+  departure: placeSchema.nullable(),
+  arrival: placeSchema.nullable(),
+});
 
 export const routePointSchema = z.object({
   latitude: z.number(),

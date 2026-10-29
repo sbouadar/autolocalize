@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { buildApp } from "../src/app.js";
 import type { Role, TenantStatus } from "../src/generated/prisma/enums.js";
 import { prisma } from "../src/lib/prisma.js";
+import { resetAddressCache } from "../src/lib/addresses.js";
 import { resetTraccarCache } from "../src/lib/traccar.js";
 import { PUBLIC_URL } from "./env.js";
 import { startFakeTraccar, type FakeTraccar } from "./fake-traccar.js";
@@ -47,6 +48,7 @@ export async function resetState(ctx: TestContext) {
   ]);
   ctx.traccar.reset();
   resetTraccarCache();
+  resetAddressCache();
 }
 
 export async function createTenant(slug: string, overrides: { status?: TenantStatus; name?: string } = {}) {

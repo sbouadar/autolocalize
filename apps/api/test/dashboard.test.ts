@@ -10,11 +10,11 @@ after(() => ctx.close());
 const ASSIGNED = new Date("2026-01-01T00:00:00Z");
 const range = `from=${encodeURIComponent("2026-10-27T00:00:00Z")}&to=${encodeURIComponent("2026-10-28T00:00:00Z")}`;
 
-const trip = (deviceId: number, duration: number) => ({
+const trip = (deviceId: number, duration: number, distance = 1000) => ({
   deviceId,
   startTime: "2026-10-27T08:00:00Z",
   endTime: "2026-10-27T09:00:00Z",
-  distance: 1000,
+  distance,
   averageSpeed: 10,
   maxSpeed: 20,
   duration,
@@ -53,7 +53,12 @@ describe("GET /api/dashboard/kpis", () => {
       { deviceId: 2, distance: 1_000, averageSpeed: 5, maxSpeed: 10, engineHours: 600_000 },
       { deviceId: 9, distance: 999_999, averageSpeed: 50, maxSpeed: 99, engineHours: 1 },
     ];
-    ctx.traccar.reports.trips = [trip(1, 3_600_000), trip(1, 1_800_000), trip(2, 600_000), trip(9, 1)];
+    ctx.traccar.reports.trips = [
+      trip(1, 3_600_000, 40_000),
+      trip(1, 1_800_000, 12_340),
+      trip(2, 600_000, 1_000),
+      trip(9, 1),
+    ];
     alice = await login(ctx.app, "alice@alpha.test");
   });
 
@@ -79,6 +84,17 @@ describe("GET /api/dashboard/kpis", () => {
     // Le rapport n'a été demandé que pour les traceurs du client.
     const sent = ctx.traccar.requests.find((r) => r.path === "/api/reports/summary")!;
     assert.deepEqual(sent.query.getAll("deviceId").sort(), ["1", "2", "3"]);
+  });
+
+  it("ignore la distance des trajets faussés par un saut au point 0,0", async () => {
+    // 4 004 km en 1 h 11 : distance cumulée gonflée par une position au 0,0 (traceur sans fix GPS).
+    ctx.traccar.reports.trips.push(trip(2, 4_260_000, 4_004_000));
+    ctx.traccar.reports.summary[1]!.distance = 4_005_000;
+    const res = await call(ctx.app, "GET", `/api/dashboard/kpis?${range}`, alice);
+    assert.equal(res.json.totals.distanceKm, 53.3);
+    assert.equal(res.json.totals.trips, 4);
+    const garé = res.json.vehicles.find((v: { name: string }) => v.name === "Garé");
+    assert.equal(garé.distanceKm, 1);
   });
 
   it("compte toute la période, même avant l'affectation (limite désactivée)", async () => {

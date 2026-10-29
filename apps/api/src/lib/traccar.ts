@@ -62,6 +62,15 @@ async function send(
   query?: URLSearchParams,
   write?: { method: "POST" | "PUT"; body: unknown },
 ): Promise<{ status: number; data: unknown }> {
+  const { status, text } = await sendText(path, query, write);
+  return { status, data: text ? (JSON.parse(text) as unknown) : null };
+}
+
+async function sendText(
+  path: string,
+  query?: URLSearchParams,
+  write?: { method: "POST" | "PUT"; body: unknown },
+): Promise<{ status: number; text: string }> {
   const url = new URL(`/api${path}`, config.TRACCAR_URL);
   if (query) url.search = query.toString();
 
@@ -79,8 +88,7 @@ async function send(
   if (!res.ok) {
     throw new TraccarError(`Traccar ${path} : HTTP ${res.status}`, res.status);
   }
-  const text = await res.text();
-  return { status: res.status, data: text ? (JSON.parse(text) as unknown) : null };
+  return { status: res.status, text: await res.text() };
 }
 
 function idsQuery(ids: number[]): URLSearchParams {
@@ -184,6 +192,18 @@ export const traccar = {
     for (const id of deviceIds) query.append("deviceId", String(id));
     return request<TraccarReports[K][]>(`/reports/${kind}`, query);
   },
+
+  /**
+   * Adresse d'un point par le géocodeur configuré dans Traccar (Nominatim, 1 requête par seconde) :
+   * texte brut, vide si aucune adresse n'est trouvée. À appeler via lib/addresses.ts (cache).
+   */
+  async reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
+    const query = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });
+    const { text } = await sendText("/server/geocode", query);
+    // Traccar écrit la chaîne telle quelle ; on accepte aussi une chaîne JSON entre guillemets.
+    const address = text.startsWith('"') ? (JSON.parse(text) as string) : text;
+    return address.trim() || null;
+  },
 };
 
 // Formats des rapports Traccar : distances en mètres, vitesses en nœuds, durées en millisecondes.
@@ -231,3 +251,19 @@ export interface TraccarReports {
 }
 
 export const knotsToKmh = (knots: number) => Math.round(knots * 1.852 * 10) / 10;
+
+/** Au-delà de cette vitesse moyenne, la distance d'un trajet est un artefact (voir isPlausibleTrip). */
+const MAX_PLAUSIBLE_AVERAGE_KMH = 250;
+
+/**
+ * Traccar calcule la distance d'un trajet par différence de la distance cumulée des positions, qui
+ * compte aussi les positions aberrantes : un traceur GT06 sans fix GPS envoie parfois le point 0,0,
+ * soit environ 4 000 km de saut depuis le Maroc. Ces trajets ont une vitesse moyenne impossible ;
+ * leur distance n'est ni affichée ni comptée. Depuis le 2026-10-29, Traccar rejette ces points
+ * (filter.zero) ; l'historique antérieur, lui, reste faussé.
+ */
+export function isPlausibleTrip(trip: Pick<TraccarTrip, "distance" | "duration">): boolean {
+  if (trip.distance <= 0) return true;
+  if (trip.duration <= 0) return false;
+  return (trip.distance / trip.duration) * 3_600 <= MAX_PLAUSIBLE_AVERAGE_KMH;
+}

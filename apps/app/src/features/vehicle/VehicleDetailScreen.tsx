@@ -10,6 +10,7 @@ import { useBranding } from "@/lib/branding-context";
 import { formatCoordinates, formatDateTime, formatDistance, formatDuration, formatSpeed } from "@/lib/format";
 import { PERIODS, periodRange, type PeriodKey } from "@/lib/period";
 import type { ReplayFrame } from "@/lib/replay";
+import type { Place } from "@/lib/types";
 import { colors, radius, spacing } from "@/lib/theme";
 import { pointsDuring, tripTotals } from "@/lib/trips";
 import { useDocumentTitle } from "@/lib/use-document-title";
@@ -30,6 +31,11 @@ import { ReplayControls } from "./ReplayControls";
 import { TripList } from "./TripList";
 
 const noop = () => {};
+
+/** Adresse du lieu, ou ses coordonnées tant qu'elle n'est pas connue. */
+function placeLabel(place: Place): string {
+  return place.address ?? formatCoordinates(place.latitude, place.longitude);
+}
 const NO_VEHICLES: never[] = [];
 
 function BackLink() {
@@ -170,6 +176,12 @@ export function VehicleDetailScreen({ id }: { id: string }) {
             <StatTile label="Temps de conduite" value={formatDuration(totals.durationMs)} />
             <StatTile label="Vitesse max" value={formatSpeed(totals.maxSpeedKmh)} />
           </View>
+          {tripsQuery.data?.departure && tripsQuery.data.arrival ? (
+            <View style={styles.card}>
+              <Text style={styles.fact}>Départ : {placeLabel(tripsQuery.data.departure)}</Text>
+              <Text style={styles.fact}>Arrivée : {placeLabel(tripsQuery.data.arrival)}</Text>
+            </View>
+          ) : null}
           {trips.length === 0 ? (
             <Text style={styles.empty}>Aucun trajet sur cette période.</Text>
           ) : (

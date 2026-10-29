@@ -3,7 +3,7 @@ import { tenantScope, vehicleSelect, withLiveData } from "../lib/fleet.js";
 import { clampToAssignment, parsePeriod } from "../lib/period.js";
 import { REPORT_RATE_LIMIT } from "./vehicles.js";
 import { prisma } from "../lib/prisma.js";
-import { knotsToKmh, traccar, type TraccarSummary, type TraccarTrip } from "../lib/traccar.js";
+import { isPlausibleTrip, knotsToKmh, traccar, type TraccarSummary, type TraccarTrip } from "../lib/traccar.js";
 
 const KPI_MAX_DAYS = 31;
 /** Même seuil que l'application : en dessous, sans attribut « motion », le véhicule est à l'arrêt. */
@@ -66,7 +66,9 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
         id: r.id,
         name: r.name,
         plate: r.plate,
-        distanceKm: round1((summary?.distance ?? 0) / 1000),
+        // Somme des trajets plausibles, et non la distance du rapport « summary » : celle-ci est une
+        // différence de distance cumulée, faussée par les positions aberrantes (voir isPlausibleTrip).
+        distanceKm: round1(own.filter(isPlausibleTrip).reduce((sum, t) => sum + t.distance, 0) / 1000),
         drivingMs: own.reduce((sum, t) => sum + t.duration, 0),
         engineHoursMs: summary?.engineHours ?? 0,
         maxSpeedKmh: knotsToKmh(summary?.maxSpeed ?? 0),

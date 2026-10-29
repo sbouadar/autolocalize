@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 const DAY_MS = 86_400_000;
+/** Marge d'une heure : une période en jours calendaires qui couvre un passage à l'heure d'hiver
+ * dure une heure de plus (ex. « 7 jours » du 23/10 0 h au 29/10 23 h en France). */
+const DST_MARGIN_MS = 3_600_000;
 
 const schema = z.object({
   from: z.iso.datetime({ offset: true }),
@@ -40,7 +43,7 @@ export function parsePeriod(query: unknown, maxDays: number): Period | { error: 
   const from = new Date(parsed.data.from);
   const to = new Date(parsed.data.to);
   if (to <= from) return { error: "La date de fin doit suivre la date de début" };
-  if (to.getTime() - from.getTime() > maxDays * DAY_MS) {
+  if (to.getTime() - from.getTime() > maxDays * DAY_MS + DST_MARGIN_MS) {
     return { error: `Période limitée à ${maxDays} jours` };
   }
   return { from, to };

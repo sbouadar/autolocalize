@@ -12,10 +12,6 @@ interface TripListProps {
   withDay: boolean;
 }
 
-function place(p: Trip["start"]): string {
-  return p.address ?? "Adresse inconnue";
-}
-
 /** Trajets de la période ; un appui affiche le trajet seul sur la carte, un second appui le désélectionne. */
 export function TripList({ trips, selectedIndex, onSelect, withDay }: TripListProps) {
   const branding = useBranding();
@@ -41,13 +37,13 @@ export function TripList({ trips, selectedIndex, onSelect, withDay }: TripListPr
               <Text style={styles.when}>{when}</Text>
               <Text style={styles.distance}>{formatDistance(trip.distanceKm)}</Text>
             </View>
-            <Text style={styles.muted} numberOfLines={1}>
-              {place(trip.start)} → {place(trip.end)}
-            </Text>
             <Text style={styles.muted}>
               {formatDuration(trip.durationMs)} · moyenne {formatSpeed(trip.averageSpeedKmh)} · max{" "}
               {formatSpeed(trip.maxSpeedKmh)}
             </Text>
+            {trip.distanceKm == null ? (
+              <Text style={styles.muted}>Distance non mesurable : position GPS aberrante pendant ce trajet.</Text>
+            ) : null}
           </Pressable>
         );
       })}

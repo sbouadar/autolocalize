@@ -24,6 +24,8 @@ export interface FakeTraccar {
   };
   /** Types de commandes par appareil (par défaut : coupure et rétablissement du moteur). */
   commandTypes: Record<number, string[]>;
+  /** Adresses renvoyées par /api/server/geocode, par « latitude,longitude ». */
+  addresses: Record<string, string>;
   /** Force une réponse 500 sur toutes les routes (Traccar en panne). */
   down: boolean;
   requests: FakeRequest[];
@@ -82,6 +84,7 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
     groups: [],
     reports: { trips: [], route: [], summary: [], stops: [] },
     commandTypes: {},
+    addresses: {},
     down: false,
     requests: [],
     reset() {
@@ -90,6 +93,7 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       this.groups = [];
       this.reports = { trips: [], route: [], summary: [], stops: [] };
       this.commandTypes = {};
+      this.addresses = {};
       this.down = false;
       this.requests = [];
     },
@@ -124,6 +128,12 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       const kind = path.slice("/api/reports/".length) as keyof FakeTraccar["reports"];
       if (!(kind in fake.reports)) return send(res, 404);
       return send(res, 200, byDevice(fake.reports[kind] as { deviceId?: unknown }[]));
+    }
+    if (req.method === "GET" && path === "/api/server/geocode") {
+      // Comme Traccar : la chaîne brute, sans guillemets JSON ; rien si l'adresse est inconnue.
+      const address = fake.addresses[`${url.searchParams.get("latitude")},${url.searchParams.get("longitude")}`];
+      res.writeHead(address ? 200 : 204, { "content-type": "application/json" });
+      return res.end(address ?? "");
     }
     if (req.method === "GET" && path === "/api/commands/types") {
       const id = Number(url.searchParams.get("deviceId"));

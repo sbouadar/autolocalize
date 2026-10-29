@@ -1,9 +1,10 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { addressOf } from "../lib/addresses.js";
 import { tenantScope, vehicleSelect, withLiveData, type VehicleRow } from "../lib/fleet.js";
 import { clampToAssignment, parsePeriod } from "../lib/period.js";
 import { prisma } from "../lib/prisma.js";
-import { knotsToKmh, traccar } from "../lib/traccar.js";
+import { isPlausibleTrip, knotsToKmh, traccar } from "../lib/traccar.js";
 
 const TRIPS_MAX_DAYS = 31;
 const ROUTE_MAX_DAYS = 7;
@@ -65,7 +66,7 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
     const requested = parsePeriod(request.query, TRIPS_MAX_DAYS);
     if ("error" in requested) return reply.badRequest(requested.error);
     const period = clampToAssignment(requested, vehicle.historyStartAt);
-    if (!period) return { trips: [] };
+    if (!period) return { trips: [], departure: null, arrival: null };
 
     let trips;
     try {
@@ -75,17 +76,32 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
       return reply.serviceUnavailable("Historique momentanément indisponible");
     }
 
+    // Adresses du premier départ et de la dernière arrivée seulement (cache en mémoire), pas de
+    // chaque trajet : le géocodeur est limité à 1 requête par seconde.
+    const first = trips[0];
+    const last = trips.at(-1);
+    const [departureAddress, arrivalAddress] = await Promise.all([
+      first ? (first.startAddress ?? addressOf(first.startLat, first.startLon, request.log)) : null,
+      last ? (last.endAddress ?? addressOf(last.endLat, last.endLon, request.log)) : null,
+    ]);
+
     return {
-      trips: trips.map((t) => ({
-        startTime: t.startTime,
-        endTime: t.endTime,
-        durationMs: t.duration,
-        distanceKm: round1(t.distance / 1000),
-        averageSpeedKmh: knotsToKmh(t.averageSpeed),
-        maxSpeedKmh: knotsToKmh(t.maxSpeed),
-        start: { latitude: t.startLat, longitude: t.startLon, address: t.startAddress },
-        end: { latitude: t.endLat, longitude: t.endLon, address: t.endAddress },
-      })),
+      // Distance et vitesse moyenne à null quand elles sont faussées par une position aberrante.
+      trips: trips.map((t) => {
+        const plausible = isPlausibleTrip(t);
+        return {
+          startTime: t.startTime,
+          endTime: t.endTime,
+          durationMs: t.duration,
+          distanceKm: plausible ? round1(t.distance / 1000) : null,
+          averageSpeedKmh: plausible ? knotsToKmh(t.averageSpeed) : null,
+          maxSpeedKmh: knotsToKmh(t.maxSpeed),
+          start: { latitude: t.startLat, longitude: t.startLon },
+          end: { latitude: t.endLat, longitude: t.endLon },
+        };
+      }),
+      departure: first ? { latitude: first.startLat, longitude: first.startLon, address: departureAddress } : null,
+      arrival: last ? { latitude: last.endLat, longitude: last.endLon, address: arrivalAddress } : null,
     };
   });
 
