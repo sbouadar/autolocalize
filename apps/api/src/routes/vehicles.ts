@@ -4,6 +4,7 @@ import { addressOf } from "../lib/addresses.js";
 import { tenantScope, vehicleSelect, withLiveData, type VehicleRow } from "../lib/fleet.js";
 import { clampToAssignment, parsePeriod } from "../lib/period.js";
 import { prisma } from "../lib/prisma.js";
+import { fillZeroPositions, reliableTrip } from "../lib/positions.js";
 import { isPlausibleTrip, knotsToKmh, traccar } from "../lib/traccar.js";
 
 const TRIPS_MAX_DAYS = 31;
@@ -76,32 +77,45 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
       return reply.serviceUnavailable("Historique momentanément indisponible");
     }
 
+    // Trajet faussé par un saut au point 0,0 : distance et extrémités recalculées à partir de ses
+    // positions (la position 0,0 prend la dernière position connue) ; null si c'est impossible.
+    const reliable = await Promise.all(trips.map((t) => reliableTrip(t, request.log)));
+
     // Adresses du premier départ et de la dernière arrivée seulement (cache en mémoire), pas de
     // chaque trajet : le géocodeur est limité à 1 requête par seconde.
     const first = trips[0];
     const last = trips.at(-1);
+    const departure = first ? (reliable[0]?.start ?? { latitude: first.startLat, longitude: first.startLon }) : null;
+    const arrival = last ? (reliable.at(-1)?.end ?? { latitude: last.endLat, longitude: last.endLon }) : null;
     const [departureAddress, arrivalAddress] = await Promise.all([
-      first ? (first.startAddress ?? addressOf(first.startLat, first.startLon, request.log)) : null,
-      last ? (last.endAddress ?? addressOf(last.endLat, last.endLon, request.log)) : null,
+      departure ? (first!.startAddress ?? addressOf(departure.latitude, departure.longitude, request.log)) : null,
+      arrival ? (last!.endAddress ?? addressOf(arrival.latitude, arrival.longitude, request.log)) : null,
     ]);
 
     return {
-      // Distance et vitesse moyenne à null quand elles sont faussées par une position aberrante.
-      trips: trips.map((t) => {
-        const plausible = isPlausibleTrip(t);
+      // Distance et vitesse moyenne à null quand elles sont faussées et n'ont pas pu être recalculées.
+      trips: trips.map((t, i) => {
+        const fixed = reliable[i];
+        const recomputed = fixed != null && !isPlausibleTrip(t);
         return {
           startTime: t.startTime,
           endTime: t.endTime,
           durationMs: t.duration,
-          distanceKm: plausible ? round1(t.distance / 1000) : null,
-          averageSpeedKmh: plausible ? knotsToKmh(t.averageSpeed) : null,
+          distanceKm: fixed ? round1(fixed.distance / 1000) : null,
+          averageSpeedKmh: !fixed
+            ? null
+            : recomputed
+              ? t.duration > 0
+                ? round1((fixed.distance / t.duration) * 3_600)
+                : null
+              : knotsToKmh(t.averageSpeed),
           maxSpeedKmh: knotsToKmh(t.maxSpeed),
-          start: { latitude: t.startLat, longitude: t.startLon },
-          end: { latitude: t.endLat, longitude: t.endLon },
+          start: fixed?.start ?? { latitude: t.startLat, longitude: t.startLon },
+          end: fixed?.end ?? { latitude: t.endLat, longitude: t.endLon },
         };
       }),
-      departure: first ? { latitude: first.startLat, longitude: first.startLon, address: departureAddress } : null,
-      arrival: last ? { latitude: last.endLat, longitude: last.endLon, address: arrivalAddress } : null,
+      departure: departure ? { ...departure, address: departureAddress } : null,
+      arrival: arrival ? { ...arrival, address: arrivalAddress } : null,
     };
   });
 
@@ -122,7 +136,8 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
       return reply.serviceUnavailable("Historique momentanément indisponible");
     }
 
-    const valid = positions.filter((p) => p.valid !== false);
+    // Une position 0,0 (traceur sans fix GPS) prend les coordonnées de la dernière position connue.
+    const valid = fillZeroPositions(positions.filter((p) => p.valid !== false));
     return {
       truncated: valid.length > ROUTE_MAX_POINTS,
       points: downsample(valid, ROUTE_MAX_POINTS).map((p) => ({

@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatTile } from "@/components/StatTile";
@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding-context";
 import { useKpis } from "@/lib/dashboard";
 import { formatDistance, formatDuration, formatSpeed } from "@/lib/format";
-import { DASHBOARD_PERIODS, periodRange, type PeriodKey } from "@/lib/period";
+import { DASHBOARD_PERIODS, type PeriodKey } from "@/lib/period";
 import { colors, radius, spacing } from "@/lib/theme";
 import type { Kpis } from "@/lib/types";
 import { useDocumentTitle } from "@/lib/use-document-title";
@@ -69,8 +69,7 @@ export function DashboardScreen() {
   const branding = useBranding();
   useDocumentTitle(`Tableau de bord — ${branding.name}`);
   const [periodKey, setPeriodKey] = useState<PeriodKey>("today");
-  const range = useMemo(() => periodRange(periodKey), [periodKey]);
-  const { data, isPending, error, refetch } = useKpis(range);
+  const { data, isPending, error, refetch } = useKpis(periodKey);
 
   const greeting = (
     <View>

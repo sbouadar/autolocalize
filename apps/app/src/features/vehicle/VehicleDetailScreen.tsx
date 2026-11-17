@@ -8,7 +8,7 @@ import { Banner, EmptyState, ErrorState, LoadingState } from "@/components/State
 import { ApiError, userMessage } from "@/lib/api";
 import { useBranding } from "@/lib/branding-context";
 import { formatCoordinates, formatDateTime, formatDistance, formatDuration, formatSpeed } from "@/lib/format";
-import { PERIODS, periodRange, type PeriodKey } from "@/lib/period";
+import { PERIODS, type PeriodKey } from "@/lib/period";
 import type { ReplayFrame } from "@/lib/replay";
 import type { Place } from "@/lib/types";
 import { colors, radius, spacing } from "@/lib/theme";
@@ -59,10 +59,8 @@ export function VehicleDetailScreen({ id }: { id: string }) {
   const vehicleQuery = useVehicle(id);
   const [periodKey, setPeriodKey] = useState<PeriodKey>("today");
   const [selectedTrip, setSelectedTrip] = useState<number | null>(null);
-  // Période figée au moment du choix : la clé de cache reste stable entre deux rendus.
-  const range = useMemo(() => periodRange(periodKey), [periodKey]);
-  const tripsQuery = useTrips(id, range);
-  const routeQuery = useRoute(id, range);
+  const tripsQuery = useTrips(id, periodKey);
+  const routeQuery = useRoute(id, periodKey);
 
   const vehicle = vehicleQuery.data?.vehicle;
   useDocumentTitle(`${vehicle ? vehicleLabel(vehicle) : "Véhicule"} — ${branding.name}`);

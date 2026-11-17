@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
 import { VEHICLES_REFRESH_MS } from "./config";
 import { formatSpeed } from "./format";
-import { periodQuery, type PeriodRange } from "./period";
+import { periodQuery, periodRange, type PeriodKey } from "./period";
 import { colors } from "./theme";
 import {
   routeResponseSchema,
@@ -36,19 +36,22 @@ export function useVehicle(id: string) {
   });
 }
 
-// Historique : pas de rafraîchissement automatique, la période est figée au moment du choix.
-export function useTrips(id: string, range: PeriodRange) {
+// Historique : pas de rafraîchissement périodique. Les bornes de la période sont calculées à chaque
+// chargement (retour sur l'écran, nouvelle tentative) : « Aujourd'hui » va jusqu'à l'instant présent.
+export function useTrips(id: string, period: PeriodKey) {
   return useQuery({
-    queryKey: [...VEHICLES_QUERY_KEY, id, "trips", range],
-    queryFn: () => api(`/vehicles/${encodeURIComponent(id)}/trips?${periodQuery(range)}`, { schema: tripsResponseSchema }),
+    queryKey: [...VEHICLES_QUERY_KEY, id, "trips", period],
+    queryFn: () =>
+      api(`/vehicles/${encodeURIComponent(id)}/trips?${periodQuery(periodRange(period))}`, { schema: tripsResponseSchema }),
     staleTime: 60_000,
   });
 }
 
-export function useRoute(id: string, range: PeriodRange) {
+export function useRoute(id: string, period: PeriodKey) {
   return useQuery({
-    queryKey: [...VEHICLES_QUERY_KEY, id, "route", range],
-    queryFn: () => api(`/vehicles/${encodeURIComponent(id)}/route?${periodQuery(range)}`, { schema: routeResponseSchema }),
+    queryKey: [...VEHICLES_QUERY_KEY, id, "route", period],
+    queryFn: () =>
+      api(`/vehicles/${encodeURIComponent(id)}/route?${periodQuery(periodRange(period))}`, { schema: routeResponseSchema }),
     staleTime: 60_000,
   });
 }

@@ -5,12 +5,12 @@ import { DashboardScreen } from "../DashboardScreen";
 
 type Query = { data?: Kpis; isPending: boolean; error: unknown; refetch: jest.Mock };
 let mockQuery: Query;
-const mockRanges: { from: string; to: string }[] = [];
+const mockPeriods: string[] = [];
 const mockPush = jest.fn();
 
 jest.mock("@/lib/dashboard", () => ({
-  useKpis: (range: { from: string; to: string }) => {
-    mockRanges.push(range);
+  useKpis: (period: string) => {
+    mockPeriods.push(period);
     return mockQuery;
   },
 }));
@@ -31,7 +31,7 @@ const kpis: Kpis = {
 };
 
 beforeEach(() => {
-  mockRanges.length = 0;
+  mockPeriods.length = 0;
   mockQuery = { data: kpis, isPending: false, error: null, refetch: jest.fn() };
 });
 
@@ -54,10 +54,9 @@ describe("DashboardScreen", () => {
 
   it("recharge les indicateurs pour la période choisie", async () => {
     await render(<DashboardScreen />);
-    const first = mockRanges.at(-1)!;
+    expect(mockPeriods.at(-1)).toBe("today");
     await fireEvent.press(screen.getByRole("radio", { name: "30 jours" }));
-    const last = mockRanges.at(-1)!;
-    expect(Date.parse(last.from)).toBeLessThan(Date.parse(first.from));
+    expect(mockPeriods.at(-1)).toBe("month");
   });
 
   it("garde l'état de la flotte quand les rapports sont indisponibles", async () => {

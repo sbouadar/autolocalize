@@ -3,7 +3,7 @@ import { z } from "zod";
 import { config } from "../config.js";
 import type { CommandStatus, EngineCommand } from "../generated/prisma/enums.js";
 import { prisma } from "../lib/prisma.js";
-import { knotsToKmh, traccar } from "../lib/traccar.js";
+import { isDefiniteFailure, knotsToKmh, traccar } from "../lib/traccar.js";
 import { findOwnedVehicle } from "./vehicles.js";
 
 // Coupure et rétablissement du moteur à distance. Décisions de l'utilisateur (2026-10-29) :
@@ -19,6 +19,13 @@ const TRACCAR_TYPES: Record<EngineCommand, string> = {
 /** Une commande envoyée par véhicule et par minute au plus (évite les doubles appuis et l'acharnement). */
 const MIN_INTERVAL_MS = 60_000;
 const HISTORY_SIZE = 20;
+
+/**
+ * Véhicules dont une commande est en cours de traitement : deux demandes simultanées liraient toutes
+ * les deux « aucune commande récente » avant que la première ne soit journalisée. Verrou en mémoire,
+ * suffisant tant que l'API tourne en un seul processus (à porter en base si elle est répliquée).
+ */
+const inProgress = new Set<string>();
 
 const commandBody = z.object({ command: z.enum(["ENGINE_STOP", "ENGINE_RESUME"]) }).strict();
 
@@ -106,47 +113,74 @@ const commandRoutes: FastifyPluginAsync = async (app) => {
       if (!parsed.success) return reply.badRequest("Commande inconnue");
       const { command } = parsed.data;
       const speed = await lastKnownSpeed(vehicle);
+      const tooSoon = "Une commande vient d'être envoyée à ce véhicule : patientez une minute.";
 
-      const recent = await prisma.commandLog.findFirst({
-        where: { vehicleId: vehicle.id, status: "SENT", createdAt: { gte: new Date(Date.now() - MIN_INTERVAL_MS) } },
-        select: { id: true },
-      });
-      if (recent) {
-        await logCommand(request, vehicle, command, "REJECTED", { reason: "Moins d'une minute après la commande précédente", lastKnownSpeed: speed });
-        return reply.tooManyRequests("Une commande vient d'être envoyée à ce véhicule : patientez une minute.");
+      if (inProgress.has(vehicle.id)) {
+        await logCommand(request, vehicle, command, "REJECTED", { reason: "Une autre commande est en cours d'envoi", lastKnownSpeed: speed });
+        return reply.tooManyRequests(tooSoon);
       }
-
-      let types: string[];
+      inProgress.add(vehicle.id);
       try {
-        types = await traccar.getCommandTypes(vehicle.traccarDeviceId);
-      } catch (err) {
-        request.log.error({ err }, "Types de commandes Traccar indisponibles");
-        await logCommand(request, vehicle, command, "FAILED", { reason: "Traccar injoignable", lastKnownSpeed: speed });
-        return reply.serviceUnavailable("Service de commande momentanément indisponible");
-      }
-      if (!types.includes(TRACCAR_TYPES[command])) {
-        await logCommand(request, vehicle, command, "REJECTED", { reason: "Commande non prise en charge par le traceur", lastKnownSpeed: speed });
-        return reply.code(409).send({
-          statusCode: 409,
-          error: "Ce traceur ne prend pas en charge cette commande",
-          code: "COMMAND_UNSUPPORTED",
+        // Une commande dont le sort est incertain compte comme envoyée : on ne la double pas.
+        const recent = await prisma.commandLog.findFirst({
+          where: {
+            vehicleId: vehicle.id,
+            status: { in: ["SENT", "UNCERTAIN"] },
+            createdAt: { gte: new Date(Date.now() - MIN_INTERVAL_MS) },
+          },
+          select: { id: true },
         });
-      }
+        if (recent) {
+          await logCommand(request, vehicle, command, "REJECTED", { reason: "Moins d'une minute après la commande précédente", lastKnownSpeed: speed });
+          return reply.tooManyRequests(tooSoon);
+        }
 
-      let queued: boolean;
-      try {
-        ({ queued } = await traccar.sendCommand(vehicle.traccarDeviceId, TRACCAR_TYPES[command]));
-      } catch (err) {
-        request.log.error({ err }, "Échec de l'envoi de la commande Traccar");
-        await logCommand(request, vehicle, command, "FAILED", { reason: "Refus ou erreur de Traccar", lastKnownSpeed: speed });
-        return reply.serviceUnavailable("La commande n'a pas pu être envoyée");
-      }
+        let types: string[];
+        try {
+          types = await traccar.getCommandTypes(vehicle.traccarDeviceId);
+        } catch (err) {
+          request.log.error({ err }, "Types de commandes Traccar indisponibles");
+          await logCommand(request, vehicle, command, "FAILED", { reason: "Traccar injoignable", lastKnownSpeed: speed });
+          return reply.serviceUnavailable("Service de commande momentanément indisponible");
+        }
+        if (!types.includes(TRACCAR_TYPES[command])) {
+          await logCommand(request, vehicle, command, "REJECTED", { reason: "Commande non prise en charge par le traceur", lastKnownSpeed: speed });
+          return reply.code(409).send({
+            statusCode: 409,
+            error: "Ce traceur ne prend pas en charge cette commande",
+            code: "COMMAND_UNSUPPORTED",
+          });
+        }
 
-      await logCommand(request, vehicle, command, "SENT", {
-        lastKnownSpeed: speed,
-        traccarResponse: queued ? "En attente : transmise à la prochaine connexion du traceur" : "Transmise au traceur",
-      });
-      return { status: "SENT", queued };
+        let queued: boolean;
+        try {
+          ({ queued } = await traccar.sendCommand(vehicle.traccarDeviceId, TRACCAR_TYPES[command]));
+        } catch (err) {
+          request.log.error({ err }, "Échec de l'envoi de la commande Traccar");
+          if (isDefiniteFailure(err)) {
+            await logCommand(request, vehicle, command, "FAILED", { reason: "Refus ou erreur de Traccar", lastKnownSpeed: speed });
+            return reply.serviceUnavailable("La commande n'a pas pu être envoyée");
+          }
+          // Requête partie, réponse jamais reçue : la commande a peut-être atteint le traceur.
+          await logCommand(request, vehicle, command, "UNCERTAIN", {
+            reason: "Aucune réponse de Traccar : commande peut-être transmise",
+            lastKnownSpeed: speed,
+          });
+          return reply.code(504).send({
+            statusCode: 504,
+            error: "Aucune confirmation reçue : la commande a peut-être été transmise au traceur",
+            code: "COMMAND_UNCERTAIN",
+          });
+        }
+
+        await logCommand(request, vehicle, command, "SENT", {
+          lastKnownSpeed: speed,
+          traccarResponse: queued ? "En attente : transmise à la prochaine connexion du traceur" : "Transmise au traceur",
+        });
+        return { status: "SENT", queued };
+      } finally {
+        inProgress.delete(vehicle.id);
+      }
     },
   );
 };

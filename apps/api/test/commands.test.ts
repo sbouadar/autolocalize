@@ -61,6 +61,27 @@ describe("Commandes moteur : /vehicles/:id/commands", () => {
     assert.deepEqual(statuses, ["SENT", "REJECTED"]);
   });
 
+  it("n'envoie qu'une commande quand deux demandes arrivent en même temps", async () => {
+    ctx.traccar.commandDelayMs = 150;
+    const results = await Promise.all([stop(alice), stop(alice)]);
+    assert.deepEqual(results.map((r) => r.status).sort(), [200, 429]);
+    assert.equal(sent().length, 1);
+    const statuses = (await prisma.commandLog.findMany({ where: { vehicleId: mine } })).map((l) => l.status).sort();
+    assert.deepEqual(statuses, ["REJECTED", "SENT"]);
+  });
+
+  it("journalise « incertain » si Traccar reçoit la commande sans y répondre, et bloque la suivante", async () => {
+    ctx.traccar.dropCommandResponse = true;
+    const res = await stop(alice);
+    assert.equal(res.status, 504);
+    assert.equal(res.json.code, "COMMAND_UNCERTAIN");
+    assert.equal((await prisma.commandLog.findFirstOrThrow({ where: { vehicleId: mine } })).status, "UNCERTAIN");
+
+    ctx.traccar.dropCommandResponse = false;
+    assert.equal((await stop(alice)).status, 429);
+    assert.equal(sent().length, 1);
+  });
+
   it("refuse une commande que le traceur ne prend pas en charge", async () => {
     ctx.traccar.commandTypes[1] = ["custom"];
     const res = await stop(alice);

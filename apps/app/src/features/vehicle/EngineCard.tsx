@@ -50,7 +50,12 @@ export function EngineCard({ vehicle }: { vehicle: Vehicle }) {
     } catch (err) {
       setMessage({
         tone: "error",
-        text: err instanceof ApiError && err.status === 429 ? "Une commande vient d’être envoyée : patientez une minute." : formMessage(err),
+        text:
+          err instanceof ApiError && err.status === 429
+            ? "Une commande vient d’être envoyée : patientez une minute."
+            : err instanceof ApiError && err.code === "COMMAND_UNCERTAIN"
+              ? "Aucune confirmation reçue : la commande a peut-être été transmise au traceur. Vérifiez l’état du véhicule avant de réessayer."
+              : formMessage(err),
       });
     }
   };

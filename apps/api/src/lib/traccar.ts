@@ -48,6 +48,20 @@ export class TraccarError extends Error {
 
 const TIMEOUT_MS = 10_000;
 
+/** Erreurs réseau survenues avant tout envoi : Traccar n'a pas pu recevoir la requête. */
+const NOT_SENT_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH"]);
+
+/**
+ * true si l'on sait que Traccar n'a pas exécuté la requête : il a répondu par une erreur, ou la
+ * connexion n'a pas pu s'établir. false dans les autres cas (délai dépassé, connexion coupée en
+ * cours de route, réponse illisible) : la requête a peut-être été traitée.
+ */
+export function isDefiniteFailure(err: unknown): boolean {
+  if (err instanceof TraccarError) return true;
+  const code = (err as { cause?: { code?: unknown } } | null)?.cause?.code;
+  return typeof code === "string" && NOT_SENT_CODES.has(code);
+}
+
 async function request<T>(
   path: string,
   query?: URLSearchParams,
@@ -256,6 +270,8 @@ export const knotsToKmh = (knots: number) => Math.round(knots * 1.852 * 10) / 10
 const MAX_PLAUSIBLE_AVERAGE_KMH = 250;
 /** Écart toléré entre vitesse moyenne (distance / durée) et vitesse max relevée : bruit du GPS. */
 const AVERAGE_OVER_MAX_MARGIN_KMH = 30;
+/** Plafond de vitesse moyenne quand le traceur ne remonte pas sa vitesse (vitesse max à 0). */
+const MAX_AVERAGE_WITHOUT_SPEED_KMH = 160;
 
 /**
  * Traccar calcule la distance d'un trajet par différence de la distance cumulée des positions, qui
@@ -269,6 +285,10 @@ export function isPlausibleTrip(trip: Pick<TraccarTrip, "distance" | "duration" 
   if (trip.distance <= 0) return true;
   if (trip.duration <= 0) return false;
   const averageKmh = (trip.distance / trip.duration) * 3_600;
+  // Vitesse max à 0 : le traceur ne remonte pas sa vitesse (cas de certains GT06). La comparaison à
+  // la vitesse max masquerait alors tout trajet à plus de 30 km/h de moyenne : on s'en tient à un
+  // plafond de moyenne, qu'aucun véhicule ne tient sur la durée d'un trajet.
+  if (trip.maxSpeed <= 0) return averageKmh <= MAX_AVERAGE_WITHOUT_SPEED_KMH;
   return (
     averageKmh <= MAX_PLAUSIBLE_AVERAGE_KMH && averageKmh <= trip.maxSpeed * 1.852 + AVERAGE_OVER_MAX_MARGIN_KMH
   );

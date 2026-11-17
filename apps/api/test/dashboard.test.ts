@@ -86,7 +86,21 @@ describe("GET /api/dashboard/kpis", () => {
     assert.deepEqual(sent.query.getAll("deviceId").sort(), ["1", "2", "3"]);
   });
 
-  it("ignore la distance des trajets faussés par un saut au point 0,0", async () => {
+  it("recalcule la distance d'un trajet faussé à partir de ses positions", async () => {
+    ctx.traccar.reports.trips.push(trip(2, 4_260_000, 4_004_000));
+    // 0,1° de latitude (≈ 11,1 km) avec un saut au point 0,0 : il prend la dernière position connue.
+    ctx.traccar.reports.route = [
+      position({ deviceId: 2, id: 1, latitude: 33.5, longitude: -7.6 }),
+      position({ deviceId: 2, id: 2, latitude: 0, longitude: 0 }),
+      position({ deviceId: 2, id: 3, latitude: 33.6, longitude: -7.6 }),
+    ];
+    const res = await call(ctx.app, "GET", `/api/dashboard/kpis?${range}`, alice);
+    const garé = res.json.vehicles.find((v: { name: string }) => v.name === "Garé");
+    assert.equal(garé.distanceKm, 12.1);
+    assert.equal(res.json.totals.distanceKm, 64.4);
+  });
+
+  it("ignore la distance des trajets faussés qui ne peuvent pas être recalculés", async () => {
     // 4 004 km en 1 h 11 : distance cumulée gonflée par une position au 0,0 (traceur sans fix GPS).
     ctx.traccar.reports.trips.push(trip(2, 4_260_000, 4_004_000));
     ctx.traccar.reports.summary[1]!.distance = 4_005_000;

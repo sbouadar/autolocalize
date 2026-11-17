@@ -28,6 +28,10 @@ export interface FakeTraccar {
   addresses: Record<string, string>;
   /** Force une réponse 500 sur toutes les routes (Traccar en panne). */
   down: boolean;
+  /** Coupe la connexion sans répondre à /api/commands/send (commande reçue, réponse perdue). */
+  dropCommandResponse: boolean;
+  /** Délai avant la réponse à /api/commands/send, en millisecondes. */
+  commandDelayMs: number;
   requests: FakeRequest[];
   reset(): void;
   close(): Promise<void>;
@@ -86,6 +90,8 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
     commandTypes: {},
     addresses: {},
     down: false,
+    dropCommandResponse: false,
+    commandDelayMs: 0,
     requests: [],
     reset() {
       this.devices = [];
@@ -95,6 +101,8 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       this.commandTypes = {};
       this.addresses = {};
       this.down = false;
+      this.dropCommandResponse = false;
+      this.commandDelayMs = 0;
       this.requests = [];
     },
     close: async () => {},
@@ -144,6 +152,8 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       const command = body as { deviceId: number; type: string };
       const target = fake.devices.find((d) => d.id === command.deviceId);
       if (!target) return send(res, 400, "Device not found");
+      if (fake.dropCommandResponse) return void req.socket.destroy();
+      if (fake.commandDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, fake.commandDelayMs));
       // Comme Traccar : 202 si le traceur est hors ligne (commande mise en file d'attente).
       return send(res, target.status === "online" ? 200 : 202, { id: nextId++, ...command });
     }

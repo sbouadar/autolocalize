@@ -13,7 +13,7 @@ const commandsSchema = z.object({
     z.object({
       id: z.string(),
       command: engineCommandSchema,
-      status: z.enum(["SENT", "REJECTED", "FAILED"]),
+      status: z.enum(["SENT", "REJECTED", "FAILED", "UNCERTAIN"]),
       reason: z.string().nullable(),
       createdAt: z.string(),
       userName: z.string(),
@@ -33,6 +33,7 @@ export const COMMAND_STATUS_LABELS: Record<VehicleCommands["history"][number]["s
   SENT: "envoyée",
   REJECTED: "refusée",
   FAILED: "échec",
+  UNCERTAIN: "sans confirmation",
 };
 
 const commandsKey = (id: string) => ["vehicles", id, "commands"] as const;

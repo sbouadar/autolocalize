@@ -136,7 +136,8 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
     assert.equal(res.json.arrival.address, null);
   });
 
-  it("masque la distance et la vitesse moyenne d'un trajet faussé par un saut au point 0,0", async () => {
+  it("masque la distance et la vitesse moyenne d'un trajet faussé qui ne peut pas être recalculé", async () => {
+    ctx.traccar.reports.route = []; // aucune position : recalcul impossible
     Object.assign(ctx.traccar.reports.trips[0]!, { distance: 3_821_400, duration: 4_260_000, averageSpeed: 1734, maxSpeed: 0 });
     const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
     assert.equal(res.json.trips[0].distanceKm, null);
@@ -147,6 +148,7 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
 
   it("masque aussi un long trajet faussé dont la moyenne dépasse la vitesse max", async () => {
     // Cas réel : 3 796 km en 16 h 52 (225 km/h de moyenne) avec un max à 0 km/h.
+    ctx.traccar.reports.route = [];
     Object.assign(ctx.traccar.reports.trips[0]!, { distance: 3_796_300, duration: 60_720_000, averageSpeed: 121, maxSpeed: 0 });
     const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
     assert.equal(res.json.trips[0].distanceKm, null);
@@ -157,6 +159,55 @@ describe("Fiche véhicule : /vehicles/:id, /trips, /route", () => {
     Object.assign(ctx.traccar.reports.trips[0]!, { distance: 45_000, duration: 1_800_000, maxSpeed: 70 / 1.852 });
     const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
     assert.equal(res.json.trips[0].distanceKm, 45);
+  });
+
+  it("garde un trajet normal quand le traceur ne remonte pas sa vitesse (vitesse max à 0)", async () => {
+    // 45 km en 30 min (90 km/h de moyenne), vitesse max à 0 : la distance reste affichée.
+    Object.assign(ctx.traccar.reports.trips[0]!, { distance: 45_000, duration: 1_800_000, maxSpeed: 0 });
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(res.json.trips[0].distanceKm, 45);
+    assert.notEqual(res.json.trips[0].averageSpeedKmh, null);
+  });
+
+  it("recalcule un trajet faussé par un saut au point 0,0 avec la dernière position connue", async () => {
+    // Trajet annoncé à 3 821 km en 1 h 11 ; positions réelles : 0,1° de latitude vers le nord (≈ 11,1 km),
+    // avec un saut au point 0,0 au milieu et un trajet qui commence par une position 0,0.
+    Object.assign(ctx.traccar.reports.trips[0]!, {
+      distance: 3_821_400, duration: 4_260_000, averageSpeed: 1734, maxSpeed: 0, startLat: 0, startLon: 0, startAddress: null,
+    });
+    ctx.traccar.reports.route = [
+      position({ deviceId: 1, id: 1, latitude: 0, longitude: 0 }),
+      position({ deviceId: 1, id: 2, latitude: 33.5, longitude: -7.6 }),
+      position({ deviceId: 1, id: 3, latitude: 33.55, longitude: -7.6 }),
+      position({ deviceId: 1, id: 4, latitude: 0, longitude: 0 }),
+      position({ deviceId: 1, id: 5, latitude: 33.6, longitude: -7.6 }),
+    ];
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(res.json.trips[0].distanceKm, 11.1);
+    assert.equal(res.json.trips[0].averageSpeedKmh, 9.4);
+    assert.deepEqual(res.json.trips[0].start, { latitude: 33.5, longitude: -7.6 });
+    assert.deepEqual(res.json.trips[0].end, { latitude: 33.6, longitude: -7.6 });
+    assert.equal(res.json.departure.latitude, 33.5);
+
+    const routes = () => ctx.traccar.requests.filter((r) => r.path === "/api/reports/route").length;
+    assert.equal(routes(), 1);
+    await call(ctx.app, "GET", `/api/vehicles/${mine}/trips?${range}`, alice);
+    assert.equal(routes(), 1, "recalcul servi par le cache");
+  });
+
+  it("remplace une position 0,0 du tracé par la dernière position connue", async () => {
+    ctx.traccar.reports.route = [
+      position({ deviceId: 1, id: 1, latitude: 0, longitude: 0 }),
+      position({ deviceId: 1, id: 2, latitude: 33.5, longitude: -7.6 }),
+      position({ deviceId: 1, id: 3, latitude: 0, longitude: 0, fixTime: "2026-10-27T08:10:00.000+00:00" }),
+      position({ deviceId: 1, id: 4, latitude: 33.6, longitude: -7.5 }),
+    ];
+    const res = await call(ctx.app, "GET", `/api/vehicles/${mine}/route?${range}`, alice);
+    assert.deepEqual(
+      res.json.points.map((p: { latitude: number; longitude: number }) => [p.latitude, p.longitude]),
+      [[33.5, -7.6], [33.5, -7.6], [33.6, -7.5]],
+    );
+    assert.equal(res.json.points[1].fixTime, "2026-10-27T08:10:00.000+00:00");
   });
 
   it("ne renvoie ni départ ni arrivée sans trajet", async () => {

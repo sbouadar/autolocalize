@@ -3,7 +3,8 @@ import { tenantScope, vehicleSelect, withLiveData } from "../lib/fleet.js";
 import { clampToAssignment, parsePeriod } from "../lib/period.js";
 import { REPORT_RATE_LIMIT } from "./vehicles.js";
 import { prisma } from "../lib/prisma.js";
-import { isPlausibleTrip, knotsToKmh, traccar, type TraccarSummary, type TraccarTrip } from "../lib/traccar.js";
+import { reliableTrip } from "../lib/positions.js";
+import { knotsToKmh, traccar, type TraccarSummary, type TraccarTrip } from "../lib/traccar.js";
 
 const KPI_MAX_DAYS = 31;
 /** Même seuil que l'application : en dessous, sans attribut « motion », le véhicule est à l'arrêt. */
@@ -59,6 +60,15 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
       reportsAvailable = false;
     }
 
+    // Distance fiable de chaque trajet : celle de Traccar, ou recalculée à partir des positions quand
+    // elle est faussée par un saut au point 0,0 ; 0 si le recalcul est impossible.
+    const meters = new Map<TraccarTrip, number>();
+    await Promise.all(
+      trips.map(async (t) => {
+        meters.set(t, (await reliableTrip(t, request.log))?.distance ?? 0);
+      }),
+    );
+
     const perVehicle = rows.map((r) => {
       const summary = summaries.find((s) => s.deviceId === r.traccarDeviceId);
       const own = trips.filter((t) => t.deviceId === r.traccarDeviceId);
@@ -66,9 +76,9 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
         id: r.id,
         name: r.name,
         plate: r.plate,
-        // Somme des trajets plausibles, et non la distance du rapport « summary » : celle-ci est une
-        // différence de distance cumulée, faussée par les positions aberrantes (voir isPlausibleTrip).
-        distanceKm: round1(own.filter(isPlausibleTrip).reduce((sum, t) => sum + t.distance, 0) / 1000),
+        // Somme des trajets, et non la distance du rapport « summary » : celle-ci est une différence
+        // de distance cumulée, faussée par les positions aberrantes (voir isPlausibleTrip).
+        distanceKm: round1(own.reduce((sum, t) => sum + (meters.get(t) ?? 0), 0) / 1000),
         drivingMs: own.reduce((sum, t) => sum + t.duration, 0),
         engineHoursMs: summary?.engineHours ?? 0,
         maxSpeedKmh: knotsToKmh(summary?.maxSpeed ?? 0),

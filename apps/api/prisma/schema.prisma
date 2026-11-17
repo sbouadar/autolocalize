@@ -169,7 +169,8 @@ enum EngineCommand {
 enum CommandStatus {
   SENT     // acceptée par Traccar
   REJECTED // refusée par le backend (droits, vitesse, fréquence)
-  FAILED   // erreur Traccar ou réseau
+  FAILED   // erreur Traccar ou réseau : la commande n'est pas partie
+  UNCERTAIN // envoyée à Traccar sans réponse (délai dépassé, coupure) : peut-être transmise au traceur
 }
 
 model CommandLog {
