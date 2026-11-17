@@ -159,6 +159,7 @@ model Vehicle {
   tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   commandLog CommandLog[]
   events     Event[]
+  zones      ZoneVehicle[]
 
   @@index([tenantId])
   @@map("vehicles")
@@ -175,15 +176,32 @@ model Zone {
   latitude          Float
   longitude         Float
   radiusM           Int      // rayon en mètres
+  color             String   @default("#2563EB") @db.VarChar(7) // couleur d'affichage, attribuée à la création
   traccarGeofenceId Int      @unique
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  events Event[]
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  events   Event[]
+  vehicles ZoneVehicle[]
 
   @@index([tenantId])
   @@map("zones")
+}
+
+// Véhicules surveillés par une zone : seuls ceux-là déclenchent une alerte en y entrant ou en en
+// sortant (5 zones au plus par véhicule). Recopié dans Traccar (liaison appareil ↔ geofence).
+model ZoneVehicle {
+  zoneId    String
+  vehicleId String
+  createdAt DateTime @default(now())
+
+  zone    Zone    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@id([zoneId, vehicleId])
+  @@index([vehicleId])
+  @@map("zone_vehicles")
 }
 
 // ─── Événements des véhicules (alertes) ───────────────────────────────────────

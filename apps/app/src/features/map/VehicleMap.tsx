@@ -3,14 +3,14 @@ import { StyleSheet } from "react-native";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { withAlpha } from "@/lib/branding";
 import { useBranding } from "@/lib/branding-context";
-import { focusRegion, regionFor } from "@/lib/map";
+import { focusRegion, OVERVIEW_RADIUS_M, regionAround, regionFor } from "@/lib/map";
 import { movementLabel, vehicleLabel, vehicleStatus } from "@/lib/vehicles";
 import type { VehicleMapProps } from "./vehicle-map-props";
 
 const EDGE_PADDING = { top: 60, right: 40, bottom: 60, left: 40 };
 
 /** Carte native (Apple Maps sur iOS, Google Maps sur Android). */
-export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zones, onMapPress, focus }: VehicleMapProps) {
+export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zones, onMapPress, focus, overview }: VehicleMapProps) {
   const branding = useBranding();
   const mapRef = useRef<MapView>(null);
   const fitted = useRef(false);
@@ -21,9 +21,11 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
   useEffect(() => {
     if (fitted.current || vehicles.length === 0 || hasRoute) return;
     fitted.current = true;
-    if (vehicles.length === 1) mapRef.current?.animateToRegion(focusRegion(vehicles[0]!.position));
+    // Vue d'ensemble (écran des zones) : large autour de la flotte, pour placer une zone sans dézoomer.
+    if (overview) mapRef.current?.animateToRegion(regionAround(regionFor(vehicles.map((v) => v.position)), OVERVIEW_RADIUS_M));
+    else if (vehicles.length === 1) mapRef.current?.animateToRegion(focusRegion(vehicles[0]!.position));
     else mapRef.current?.fitToCoordinates(vehicles.map((v) => v.position), { edgePadding: EDGE_PADDING, animated: true });
-  }, [vehicles, hasRoute]);
+  }, [vehicles, hasRoute, overview]);
 
   // Historique : recadrage sur le tracé à chaque nouveau tracé.
   useEffect(() => {
@@ -42,9 +44,10 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
 
   // Centrage sur la zone choisie dans la liste.
   useEffect(() => {
-    if (focus) mapRef.current?.animateToRegion(focusRegion(focus), 400);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus?.latitude, focus?.longitude]);
+    if (!focus) return;
+    fitted.current = true;
+    mapRef.current?.animateToRegion(focus.radiusM ? regionAround(focus, focus.radiusM) : focusRegion(focus), 400);
+  }, [focus]);
 
   return (
     <MapView
@@ -60,8 +63,8 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
           center={{ latitude: z.latitude, longitude: z.longitude }}
           radius={z.radiusM}
           strokeWidth={2}
-          strokeColor={z.draft ? branding.secondaryColor : branding.primaryColor}
-          fillColor={withAlpha(z.draft ? branding.secondaryColor : branding.primaryColor, z.draft ? 0.25 : 0.12)}
+          strokeColor={z.color}
+          fillColor={withAlpha(z.color, z.draft ? 0.25 : 0.12)}
         />
       ))}
       {hasRoute ? <Polyline coordinates={route} strokeColor={branding.primaryColor} strokeWidth={4} /> : null}

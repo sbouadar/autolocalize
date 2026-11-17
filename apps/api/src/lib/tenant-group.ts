@@ -21,15 +21,3 @@ export async function ensureTenantGroup(
   log.warn({ orphanGroupId: group.id }, "Groupe Traccar créé en double (vide, à supprimer dans Traccar)");
   return winner.traccarGroupId!;
 }
-
-/**
- * Range dans le groupe du client ceux de ses traceurs qui n'y sont pas (affectés avant la création
- * du groupe, comme le traceur du seed) : une zone liée au groupe ne surveille que ses appareils.
- */
-export async function alignTenantDevices(tenantId: string, groupId: number): Promise<void> {
-  const vehicles = await prisma.vehicle.findMany({ where: { tenantId }, select: { traccarDeviceId: true } });
-  const devices = await traccar.getDevices(vehicles.map((v) => v.traccarDeviceId));
-  for (const device of devices) {
-    if (device.groupId !== groupId) await traccar.setDeviceGroup(device.id, groupId);
-  }
-}

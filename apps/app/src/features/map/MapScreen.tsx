@@ -11,6 +11,7 @@ import { colors, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { applyFilters, DEFAULT_FILTERS, isFiltered, type VehicleFilters } from "@/lib/vehicle-filters";
 import { useVehicles } from "@/lib/vehicles";
+import { useSelectedZoneIds } from "@/lib/zone-selection";
 import { useZones } from "@/lib/zones";
 import { VehicleFiltersBar } from "./VehicleFiltersBar";
 import { VehicleList } from "./VehicleList";
@@ -30,6 +31,9 @@ export function MapScreen() {
   const { data, isPending, error, refetch } = useVehicles();
   // Zones du client, dessinées sur la carte ; leur absence (erreur, chargement) ne bloque rien.
   const zones = useZones().data?.zones;
+  // Seules les zones cochées dans l'écran des zones sont dessinées.
+  const selectedZoneIds = useSelectedZoneIds();
+  const shownZones = useMemo(() => zones?.filter((z) => selectedZoneIds.has(z.id)), [zones, selectedZoneIds]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pane, setPane] = useState<Pane>("map");
   const [filters, setFilters] = useState<VehicleFilters>(DEFAULT_FILTERS);
@@ -66,7 +70,7 @@ export function MapScreen() {
 
   const mapPane = (
     <View style={styles.mapPane}>
-      <VehicleMap vehicles={positioned} selectedId={selectedId} onSelect={setSelectedId} zones={zones} />
+      <VehicleMap vehicles={positioned} selectedId={selectedId} onSelect={setSelectedId} zones={shownZones} />
       <View style={styles.zonesLink}>
         <Button label={zones?.length ? `Zones (${zones.length})` : "Zones"} variant="secondary" onPress={() => router.push("/zones")} />
       </View>

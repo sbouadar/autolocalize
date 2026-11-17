@@ -168,9 +168,18 @@ export const traccar = {
     await request(`/geofences/${id}`, undefined, { method: "DELETE" });
   },
 
-  /** Lie une zone à un groupe : Traccar surveille alors tous les appareils du groupe. */
-  async linkGeofenceToGroup(groupId: number, geofenceId: number): Promise<void> {
-    await request("/permissions", undefined, { method: "POST", body: { groupId, geofenceId } });
+  /** Lie une zone à un appareil : Traccar signale alors ses entrées et sorties de la zone. */
+  async linkGeofenceToDevice(deviceId: number, geofenceId: number): Promise<void> {
+    await request("/permissions", undefined, { method: "POST", body: { deviceId, geofenceId } });
+  },
+
+  async unlinkGeofenceFromDevice(deviceId: number, geofenceId: number): Promise<void> {
+    await request("/permissions", undefined, { method: "DELETE", body: { deviceId, geofenceId } });
+  },
+
+  /** Retire la liaison au groupe du client des zones créées avant le choix des véhicules par zone. */
+  async unlinkGeofenceFromGroup(groupId: number, geofenceId: number): Promise<void> {
+    await request("/permissions", undefined, { method: "DELETE", body: { groupId, geofenceId } });
   },
 
   /** Déclare un nouveau traceur par son identifiant (IMEI). */

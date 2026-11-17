@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ApiError, api, setSessionToken, setUnauthorizedHandler } from "./api";
 import { STORAGE_KEYS, storage } from "./storage";
 import { meSchema, type Me } from "./types";
+import { clearZoneSelection } from "./zone-selection";
 
 interface AuthState {
   me: Me | null;
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Oublie toutes les données privées : rien ne doit survivre à un changement de compte. */
   const forgetSession = useCallback(async () => {
     await setSessionToken(null);
+    clearZoneSelection();
     queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_QUERY_KEY[0] });
     queryClient.setQueryData(ME_QUERY_KEY, null);
   }, [queryClient]);
@@ -89,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchIdentity = useCallback(
     async (path: string) => {
       await api(path, { method: "POST", body: {} });
+      clearZoneSelection();
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_QUERY_KEY[0] });
       queryClient.setQueryData(ME_QUERY_KEY, await fetchMe());
     },

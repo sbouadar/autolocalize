@@ -185,7 +185,15 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       fake.geofences[index] = { ...fake.geofences[index]!, ...(body as { name: string; area: string }) };
       return send(res, 200, fake.geofences[index]);
     }
-    if (req.method === "POST" && path === "/api/permissions") {
+    if ((req.method === "POST" || req.method === "DELETE") && path === "/api/permissions") {
+      const wanted = JSON.stringify(body);
+      const index = fake.permissions.findIndex((p) => JSON.stringify(p) === wanted);
+      if (req.method === "DELETE") {
+        if (index >= 0) fake.permissions.splice(index, 1);
+        return send(res, 204);
+      }
+      // Comme Traccar : une liaison déjà présente est refusée.
+      if (index >= 0) return send(res, 400, "Duplicate entry");
       fake.permissions.push(body as Record<string, number>);
       return send(res, 204);
     }

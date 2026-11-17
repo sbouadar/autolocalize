@@ -15,17 +15,20 @@ describe("Zones : /zones", () => {
   let bob: Record<string, string>;
   let root: Record<string, string>;
   let alphaId: string;
+  let bravoId: string;
+  let mine: string;
 
   beforeEach(async () => {
     await resetState(ctx);
     const a = await createTenant("alpha");
     const b = await createTenant("bravo");
     alphaId = a.id;
+    bravoId = b.id;
     await createUser("alice@alpha.test", "TENANT_ADMIN", a.id);
     await createUser("victor@alpha.test", "VIEWER", a.id);
     await createUser("bob@bravo.test", "TENANT_ADMIN", b.id);
     await createUser("root@autolocalize.test", "SUPER_ADMIN", null);
-    await prisma.vehicle.create({ data: { tenantId: a.id, traccarDeviceId: 1, name: "A" } });
+    mine = (await prisma.vehicle.create({ data: { tenantId: a.id, traccarDeviceId: 1, name: "A" } })).id;
     ctx.traccar.devices = [device({ id: 1, groupId: 7 })];
     alice = await login(ctx.app, "alice@alpha.test");
     victor = await login(ctx.app, "victor@alpha.test");
@@ -35,19 +38,54 @@ describe("Zones : /zones", () => {
 
   const create = (headers: Record<string, string> | null, body: unknown = depot) => call(ctx.app, "POST", "/api/zones", headers, body);
 
-  it("crée la zone dans Traccar, la lie au groupe du client et y range ses traceurs", async () => {
-    const res = await create(alice);
+  it("crée la zone dans Traccar et la lie aux seuls véhicules choisis", async () => {
+    const res = await create(alice, { ...depot, vehicleIds: [mine] });
     assert.equal(res.status, 201);
-    assert.deepEqual({ ...res.json.zone, id: undefined }, { ...depot, id: undefined });
+    assert.deepEqual({ ...res.json.zone, id: undefined }, { ...depot, id: undefined, color: "#2563EB", vehicleIds: [mine] });
 
-    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: alphaId } });
-    assert.ok(tenant.traccarGroupId, "groupe Traccar créé pour le client");
     assert.equal(ctx.traccar.geofences.length, 1);
     assert.equal(ctx.traccar.geofences[0]!.area, "CIRCLE (33.5731 -7.5898, 200)");
-    assert.deepEqual(ctx.traccar.permissions, [{ groupId: tenant.traccarGroupId, geofenceId: ctx.traccar.geofences[0]!.id }]);
-    // Le traceur, affecté avant la création du groupe, y est rangé : sinon la zone ne le surveille pas.
-    assert.equal(ctx.traccar.devices[0]!.groupId, tenant.traccarGroupId);
+    assert.deepEqual(ctx.traccar.permissions, [{ deviceId: 1, geofenceId: ctx.traccar.geofences[0]!.id }]);
     assert.equal((await prisma.auditLog.findFirstOrThrow({ where: { action: "zone.create" } })).tenantId, alphaId);
+
+    // Sans véhicule : zone affichée sur la carte, sans surveillance. Couleur suivante de la palette.
+    const second = await create(alice, { ...depot, name: "Ville" });
+    assert.deepEqual(second.json.zone.vehicleIds, []);
+    assert.equal(second.json.zone.color, "#DC2626");
+    assert.equal(ctx.traccar.permissions.length, 1);
+  });
+
+  it("ajoute et retire des véhicules surveillés à la modification", async () => {
+    const other = (await prisma.vehicle.create({ data: { tenantId: alphaId, traccarDeviceId: 3, name: "C" } })).id;
+    const id = (await create(alice, { ...depot, vehicleIds: [mine] })).json.zone.id as string;
+    const geofenceId = ctx.traccar.geofences[0]!.id;
+
+    const res = await call(ctx.app, "PUT", `/api/zones/${id}`, alice, { ...depot, vehicleIds: [other] });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.json.zone.vehicleIds, [other]);
+    assert.deepEqual(ctx.traccar.permissions, [{ deviceId: 3, geofenceId }]);
+
+    // Modifier sans changer les véhicules ne touche pas aux liaisons.
+    assert.equal((await call(ctx.app, "PUT", `/api/zones/${id}`, alice, { ...depot, name: "Renommée", vehicleIds: [other] })).status, 200);
+    assert.deepEqual(ctx.traccar.permissions, [{ deviceId: 3, geofenceId }]);
+  });
+
+  it("refuse le véhicule d'un autre client et un sixième zonage du même véhicule", async () => {
+    const foreign = (await prisma.vehicle.create({ data: { tenantId: bravoId, traccarDeviceId: 2, name: "B" } })).id;
+    assert.equal((await create(alice, { ...depot, vehicleIds: [foreign] })).status, 400);
+    assert.equal((await create(alice, { ...depot, vehicleIds: ["inconnu"] })).status, 400);
+    assert.equal(ctx.traccar.geofences.length, 0);
+
+    for (let i = 1; i <= 5; i++) {
+      assert.equal((await create(alice, { ...depot, name: `Zone ${i}`, vehicleIds: [mine] })).status, 201);
+    }
+    const sixth = await create(alice, { ...depot, name: "Zone 6", vehicleIds: [mine] });
+    assert.equal(sixth.status, 409);
+    assert.match(sixth.body, /déjà surveillé par 5 zones/);
+    assert.equal(ctx.traccar.geofences.length, 5);
+    // Modifier l'une des cinq reste possible : elle ne compte pas contre elle-même.
+    const first = (await prisma.zone.findFirstOrThrow({ where: { name: "Zone 1" } })).id;
+    assert.equal((await call(ctx.app, "PUT", `/api/zones/${first}`, alice, { ...depot, name: "Zone 1 bis", vehicleIds: [mine] })).status, 200);
   });
 
   it("liste les zones du client, y compris en lecture seule, sans celles des autres", async () => {

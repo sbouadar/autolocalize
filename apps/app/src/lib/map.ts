@@ -46,6 +46,16 @@ export function focusRegion(point: LatLng): Region {
   return { latitude: point.latitude, longitude: point.longitude, latitudeDelta: FOCUS_DELTA, longitudeDelta: FOCUS_DELTA };
 }
 
+/** Rayon de la vue d'ensemble (écran des zones) : assez large pour situer une ville et ses environs. */
+export const OVERVIEW_RADIUS_M = 40_000;
+
+/** Région qui contient, avec une marge, le cercle de ce rayon autour du point (zone, vue d'ensemble). */
+export function regionAround(point: LatLng, radiusM: number): Region {
+  const latitudeDelta = Math.max((radiusM * 2 * 1.4) / 111_320, MIN_DELTA);
+  const shrink = Math.max(Math.cos((point.latitude * Math.PI) / 180), 0.1);
+  return { latitude: point.latitude, longitude: point.longitude, latitudeDelta, longitudeDelta: latitudeDelta / shrink };
+}
+
 /** Région englobant tous les points, avec une marge ; vue par défaut si aucun point. */
 export function regionFor(points: LatLng[]): Region {
   if (points.length === 0) return DEFAULT_REGION;
