@@ -22,6 +22,8 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: "Tableau de bord" }} />
       <Tabs.Screen name="map" options={{ title: "Carte" }} />
+      <Tabs.Screen name="alerts" options={{ title: "Alertes" }} />
+      <Tabs.Screen name="alerts" options={{ title: "Alertes" }} />
       <Tabs.Screen name="profile" options={{ title: "Profil" }} />
     </Tabs>
   );

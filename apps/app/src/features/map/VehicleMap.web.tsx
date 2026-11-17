@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvent } from "react-leaflet";
+import { Circle, CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvent } from "react-leaflet";
 import { useBranding } from "@/lib/branding-context";
 import { MAP_ATTRIBUTION, MAP_TILE_URL } from "@/lib/config";
 import { DEFAULT_REGION, DEFAULT_ZOOM, FOCUS_ZOOM, type PositionedVehicle } from "@/lib/map";
@@ -13,7 +13,7 @@ function latLng(v: PositionedVehicle): [number, number] {
 }
 
 /** Cadrage initial (flotte ou tracé), puis centrage à chaque changement de sélection. */
-function Viewport({ vehicles, selectedId, route }: Pick<VehicleMapProps, "vehicles" | "selectedId" | "route">) {
+function Viewport({ vehicles, selectedId, route, focus }: Pick<VehicleMapProps, "vehicles" | "selectedId" | "route" | "focus">) {
   const map = useMap();
   const fitted = useRef(false);
   const hasRoute = route != null && route.length > 1;
@@ -42,16 +42,21 @@ function Viewport({ vehicles, selectedId, route }: Pick<VehicleMapProps, "vehicl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, selectedId]);
 
+  useEffect(() => {
+    if (focus) map.flyTo([focus.latitude, focus.longitude], Math.max(map.getZoom(), FOCUS_ZOOM - 1), { duration: 0.6 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, focus?.latitude, focus?.longitude]);
+
   return null;
 }
 
-function BackgroundClick({ onSelect }: Pick<VehicleMapProps, "onSelect">) {
-  useMapEvent("click", () => onSelect(null));
+function BackgroundClick({ onSelect, onMapPress }: Pick<VehicleMapProps, "onSelect" | "onMapPress">) {
+  useMapEvent("click", (e) => (onMapPress ? onMapPress({ latitude: e.latlng.lat, longitude: e.latlng.lng }) : onSelect(null)));
   return null;
 }
 
 /** Carte web (Leaflet + tuiles raster). */
-export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor }: VehicleMapProps) {
+export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zones, onMapPress, focus }: VehicleMapProps) {
   const branding = useBranding();
   const line = useMemo(() => route?.map((p): [number, number] => [p.latitude, p.longitude]), [route]);
 
@@ -62,8 +67,23 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor }: Ve
       style={{ position: "absolute", inset: 0 }}
     >
       <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} />
-      <Viewport vehicles={vehicles} selectedId={selectedId} route={route} />
-      <BackgroundClick onSelect={onSelect} />
+      <Viewport vehicles={vehicles} selectedId={selectedId} route={route} focus={focus} />
+      <BackgroundClick onSelect={onSelect} onMapPress={onMapPress} />
+      {zones?.map((z) => (
+        // Non interactif : un clic dans une zone atteint le fond de carte ou le marqueur dessous.
+        <Circle
+          key={`${z.id}-${z.draft ? "draft" : "zone"}`}
+          center={[z.latitude, z.longitude]}
+          radius={z.radiusM}
+          interactive={false}
+          pathOptions={{
+            color: z.draft ? branding.secondaryColor : branding.primaryColor,
+            weight: 2,
+            dashArray: z.draft ? "6 6" : undefined,
+            fillOpacity: z.draft ? 0.25 : 0.12,
+          }}
+        />
+      ))}
       {line && line.length > 1 ? (
         <Polyline positions={line} pathOptions={{ color: branding.primaryColor, weight: 4, opacity: 0.85 }} />
       ) : null}

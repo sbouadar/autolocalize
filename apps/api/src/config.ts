@@ -10,6 +10,9 @@ const schema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   TRACCAR_URL: z.url(),
   TRACCAR_TOKEN: z.string().min(1),
+  // Secret que Traccar joint à chaque événement transmis (event.forward.header dans traccar.xml).
+  // Absent : la réception des événements est désactivée.
+  TRACCAR_EVENTS_SECRET: z.string().min(32).optional(),
   // Dossier des logos des clients (volume Docker en production).
   LOGO_DIR: z.string().min(1).default("data/logos"),
   // Développement uniquement : origines autorisées en plus de PUBLIC_URL (ex. l'app Expo web sur

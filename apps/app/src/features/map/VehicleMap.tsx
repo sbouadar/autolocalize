@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { StyleSheet } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Circle, Marker, Polyline } from "react-native-maps";
+import { withAlpha } from "@/lib/branding";
 import { useBranding } from "@/lib/branding-context";
 import { focusRegion, regionFor } from "@/lib/map";
 import { movementLabel, vehicleLabel, vehicleStatus } from "@/lib/vehicles";
@@ -9,7 +10,7 @@ import type { VehicleMapProps } from "./vehicle-map-props";
 const EDGE_PADDING = { top: 60, right: 40, bottom: 60, left: 40 };
 
 /** Carte native (Apple Maps sur iOS, Google Maps sur Android). */
-export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor }: VehicleMapProps) {
+export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zones, onMapPress, focus }: VehicleMapProps) {
   const branding = useBranding();
   const mapRef = useRef<MapView>(null);
   const fitted = useRef(false);
@@ -39,14 +40,30 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor }: Ve
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
+  // Centrage sur la zone choisie dans la liste.
+  useEffect(() => {
+    if (focus) mapRef.current?.animateToRegion(focusRegion(focus), 400);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.latitude, focus?.longitude]);
+
   return (
     <MapView
       ref={mapRef}
       style={StyleSheet.absoluteFill}
       initialRegion={regionFor(hasRoute ? route : vehicles.map((v) => v.position))}
-      onPress={() => onSelect(null)}
+      onPress={(e) => (onMapPress ? onMapPress(e.nativeEvent.coordinate) : onSelect(null))}
       toolbarEnabled={false}
     >
+      {zones?.map((z) => (
+        <Circle
+          key={`${z.id}-${z.draft ? "draft" : "zone"}`}
+          center={{ latitude: z.latitude, longitude: z.longitude }}
+          radius={z.radiusM}
+          strokeWidth={2}
+          strokeColor={z.draft ? branding.secondaryColor : branding.primaryColor}
+          fillColor={withAlpha(z.draft ? branding.secondaryColor : branding.primaryColor, z.draft ? 0.25 : 0.12)}
+        />
+      ))}
       {hasRoute ? <Polyline coordinates={route} strokeColor={branding.primaryColor} strokeWidth={4} /> : null}
       {cursor ? <Marker coordinate={cursor} pinColor={branding.secondaryColor} title="Replay" tracksViewChanges={false} /> : null}
       {vehicles.map((v) => (

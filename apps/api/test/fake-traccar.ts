@@ -15,6 +15,9 @@ export interface FakeTraccar {
   devices: TraccarDevice[];
   positions: TraccarPosition[];
   groups: { id: number; name: string; groupId: number; attributes: Record<string, unknown> }[];
+  geofences: { id: number; name: string; area: string }[];
+  /** Liaisons créées par /api/permissions (groupe ↔ zone). */
+  permissions: Record<string, number>[];
   /** Rapports renvoyés par deviceId ; filtrés par deviceId demandé, jamais par date. */
   reports: {
     trips: Record<string, unknown>[];
@@ -86,6 +89,8 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
     devices: [],
     positions: [],
     groups: [],
+    geofences: [],
+    permissions: [],
     reports: { trips: [], route: [], summary: [], stops: [] },
     commandTypes: {},
     addresses: {},
@@ -97,6 +102,8 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       this.devices = [];
       this.positions = [];
       this.groups = [];
+      this.geofences = [];
+      this.permissions = [];
       this.reports = { trips: [], route: [], summary: [], stops: [] };
       this.commandTypes = {};
       this.addresses = {};
@@ -161,6 +168,26 @@ export async function startFakeTraccar(): Promise<FakeTraccar> {
       const group = { id: nextId++, groupId: 0, attributes: {}, ...(body as { name: string }) };
       fake.groups.push(group);
       return send(res, 200, group);
+    }
+    if (req.method === "POST" && path === "/api/geofences") {
+      const geofence = { ...(body as { name: string; area: string }), id: nextId++ };
+      fake.geofences.push(geofence);
+      return send(res, 200, geofence);
+    }
+    const geofence = /^\/api\/geofences\/(\d+)$/.exec(path);
+    if (geofence && (req.method === "PUT" || req.method === "DELETE")) {
+      const index = fake.geofences.findIndex((g) => g.id === Number(geofence[1]));
+      if (index < 0) return send(res, 404);
+      if (req.method === "DELETE") {
+        fake.geofences.splice(index, 1);
+        return send(res, 204);
+      }
+      fake.geofences[index] = { ...fake.geofences[index]!, ...(body as { name: string; area: string }) };
+      return send(res, 200, fake.geofences[index]);
+    }
+    if (req.method === "POST" && path === "/api/permissions") {
+      fake.permissions.push(body as Record<string, number>);
+      return send(res, 204);
     }
     if (req.method === "POST" && path === "/api/devices") {
       const input = body as Partial<TraccarDevice>;

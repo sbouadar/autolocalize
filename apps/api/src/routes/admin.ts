@@ -7,6 +7,7 @@ import { clearLogo, decodeLogo, LOGO_ERRORS, logoBody, replaceLogo } from "../li
 import { generateTemporaryPassword, resetToTemporaryPassword } from "../lib/passwords.js";
 import { prisma } from "../lib/prisma.js";
 import { brandingBody, brandingFields, firstIssue } from "../lib/tenant-branding.js";
+import { ensureTenantGroup } from "../lib/tenant-group.js";
 import { traccar, type TraccarDevice } from "../lib/traccar.js";
 
 // Back-office du super-admin : clients, compte unique de chaque client, traceurs, journal.
@@ -99,26 +100,6 @@ function noStore(reply: FastifyReply) {
 
 function isUniqueViolation(err: unknown): boolean {
   return typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002";
-}
-
-/**
- * Groupe Traccar du client, créé au premier traceur affecté. Deux affectations simultanées
- * peuvent créer deux groupes : seul le premier enregistré est retenu, l'autre reste vide.
- */
-async function ensureTenantGroup(
-  tenant: { id: string; slug: string; name: string; traccarGroupId: number | null },
-  log: FastifyRequest["log"],
-) {
-  if (tenant.traccarGroupId) return tenant.traccarGroupId;
-  const group = await traccar.createGroup(`${tenant.name} (${tenant.slug})`);
-  const { count } = await prisma.tenant.updateMany({
-    where: { id: tenant.id, traccarGroupId: null },
-    data: { traccarGroupId: group.id },
-  });
-  if (count === 1) return group.id;
-  const winner = await prisma.tenant.findUniqueOrThrow({ where: { id: tenant.id }, select: { traccarGroupId: true } });
-  log.warn({ orphanGroupId: group.id }, "Groupe Traccar créé en double (vide, à supprimer dans Traccar)");
-  return winner.traccarGroupId!;
 }
 
 function deviceSummary(d: TraccarDevice | undefined) {

@@ -36,6 +36,15 @@ export interface TraccarPosition {
   };
 }
 
+export interface GeofenceInput {
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusM: number;
+}
+
+const circleArea = (z: GeofenceInput) => `CIRCLE (${z.latitude} ${z.longitude}, ${z.radiusM})`;
+
 export class TraccarError extends Error {
   constructor(
     message: string,
@@ -65,7 +74,7 @@ export function isDefiniteFailure(err: unknown): boolean {
 async function request<T>(
   path: string,
   query?: URLSearchParams,
-  write?: { method: "POST" | "PUT"; body: unknown },
+  write?: { method: "POST" | "PUT" | "DELETE"; body?: unknown },
 ): Promise<T> {
   return (await send(path, query, write)).data as T;
 }
@@ -74,7 +83,7 @@ async function request<T>(
 async function send(
   path: string,
   query?: URLSearchParams,
-  write?: { method: "POST" | "PUT"; body: unknown },
+  write?: { method: "POST" | "PUT" | "DELETE"; body?: unknown },
 ): Promise<{ status: number; data: unknown }> {
   const { status, text } = await sendText(path, query, write);
   return { status, data: text ? (JSON.parse(text) as unknown) : null };
@@ -83,7 +92,7 @@ async function send(
 async function sendText(
   path: string,
   query?: URLSearchParams,
-  write?: { method: "POST" | "PUT"; body: unknown },
+  write?: { method: "POST" | "PUT" | "DELETE"; body?: unknown },
 ): Promise<{ status: number; text: string }> {
   const url = new URL(`/api${path}`, config.TRACCAR_URL);
   if (query) url.search = query.toString();
@@ -93,9 +102,9 @@ async function sendText(
     headers: {
       Authorization: `Bearer ${config.TRACCAR_TOKEN}`,
       Accept: "application/json",
-      ...(write && { "Content-Type": "application/json" }),
+      ...(write?.body !== undefined && { "Content-Type": "application/json" }),
     },
-    body: write ? JSON.stringify(write.body) : undefined,
+    body: write?.body !== undefined ? JSON.stringify(write.body) : undefined,
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
 
@@ -144,6 +153,24 @@ export const traccar = {
   /** Crée un groupe (un par client). */
   async createGroup(name: string): Promise<{ id: number; name: string }> {
     return request("/groups", undefined, { method: "POST", body: { name } });
+  },
+
+  /** Crée une zone circulaire (geofence). Traccar attend « CIRCLE (latitude longitude, rayon en mètres) ». */
+  async createGeofence(zone: GeofenceInput): Promise<{ id: number }> {
+    return request("/geofences", undefined, { method: "POST", body: { name: zone.name, area: circleArea(zone), attributes: {} } });
+  },
+
+  async updateGeofence(id: number, zone: GeofenceInput): Promise<void> {
+    await request(`/geofences/${id}`, undefined, { method: "PUT", body: { id, name: zone.name, area: circleArea(zone), attributes: {} } });
+  },
+
+  async deleteGeofence(id: number): Promise<void> {
+    await request(`/geofences/${id}`, undefined, { method: "DELETE" });
+  },
+
+  /** Lie une zone à un groupe : Traccar surveille alors tous les appareils du groupe. */
+  async linkGeofenceToGroup(groupId: number, geofenceId: number): Promise<void> {
+    await request("/permissions", undefined, { method: "POST", body: { groupId, geofenceId } });
   },
 
   /** Déclare un nouveau traceur par son identifiant (IMEI). */

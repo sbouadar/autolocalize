@@ -37,6 +37,8 @@ model Tenant {
   users      User[]
   vehicles   Vehicle[]
   commandLog CommandLog[]
+  zones      Zone[]
+  events     Event[]
 
   @@map("tenants")
 }
@@ -154,9 +156,61 @@ model Vehicle {
 
   tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   commandLog CommandLog[]
+  events     Event[]
 
   @@index([tenantId])
   @@map("vehicles")
+}
+
+// ─── Zones (geofences) ────────────────────────────────────────────────────────
+
+// Zone circulaire d'un client (dépôt, chantier…). Notre base fait foi ; la zone est recopiée dans
+// Traccar (geofence liée au groupe du client), qui produit les événements d'entrée et de sortie.
+model Zone {
+  id                String   @id @default(cuid())
+  tenantId          String
+  name              String   @db.VarChar(100)
+  latitude          Float
+  longitude         Float
+  radiusM           Int      // rayon en mètres
+  traccarGeofenceId Int      @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  events Event[]
+
+  @@index([tenantId])
+  @@map("zones")
+}
+
+// ─── Événements des véhicules (alertes) ───────────────────────────────────────
+
+// Événements transmis par Traccar (entrée ou sortie de zone, excès de vitesse, contact, alarme…).
+// Le nom du véhicule et de la zone sont copiés : l'événement reste lisible après leur suppression.
+model Event {
+  id             String   @id @default(cuid())
+  tenantId       String
+  vehicleId      String?
+  vehicleName    String   @db.VarChar(191)
+  traccarEventId Int      @unique // évite d'enregistrer deux fois un événement retransmis
+  type           String   @db.VarChar(32) // voir EVENT_TYPES dans src/lib/events.ts
+  eventTime      DateTime
+  zoneId         String?
+  zoneName       String?  @db.VarChar(100)
+  latitude       Float?
+  longitude      Float?
+  speedKmh       Float?
+  detail         String?  @db.VarChar(64) // type d'alarme Traccar (lowBattery, powerCut…)
+  createdAt      DateTime @default(now())
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  zone    Zone?    @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, eventTime])
+  @@index([vehicleId, eventTime])
+  @@map("events")
 }
 
 // ─── Journal d'audit des commandes moteur ─────────────────────────────────────

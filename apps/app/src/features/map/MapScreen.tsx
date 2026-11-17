@@ -11,6 +11,7 @@ import { colors, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { applyFilters, DEFAULT_FILTERS, isFiltered, type VehicleFilters } from "@/lib/vehicle-filters";
 import { useVehicles } from "@/lib/vehicles";
+import { useZones } from "@/lib/zones";
 import { VehicleFiltersBar } from "./VehicleFiltersBar";
 import { VehicleList } from "./VehicleList";
 import { VehicleMap } from "./VehicleMap";
@@ -27,6 +28,8 @@ export function MapScreen() {
   useDocumentTitle(`Carte — ${branding.name}`);
   const router = useRouter();
   const { data, isPending, error, refetch } = useVehicles();
+  // Zones du client, dessinées sur la carte ; leur absence (erreur, chargement) ne bloque rien.
+  const zones = useZones().data?.zones;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pane, setPane] = useState<Pane>("map");
   const [filters, setFilters] = useState<VehicleFilters>(DEFAULT_FILTERS);
@@ -63,7 +66,10 @@ export function MapScreen() {
 
   const mapPane = (
     <View style={styles.mapPane}>
-      <VehicleMap vehicles={positioned} selectedId={selectedId} onSelect={setSelectedId} />
+      <VehicleMap vehicles={positioned} selectedId={selectedId} onSelect={setSelectedId} zones={zones} />
+      <View style={styles.zonesLink}>
+        <Button label={zones?.length ? `Zones (${zones.length})` : "Zones"} variant="secondary" onPress={() => router.push("/zones")} />
+      </View>
       {positioned.length === 0 ? (
         <View style={styles.mapNotice} pointerEvents="none">
           <Text style={styles.mapNoticeText}>
@@ -146,6 +152,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     zIndex: 1100,
   },
+  zonesLink: { position: "absolute", top: spacing.md, right: spacing.md, zIndex: 1100 },
   mapNoticeText: { fontSize: 14, color: colors.muted },
   toggle: { margin: spacing.md },
 });

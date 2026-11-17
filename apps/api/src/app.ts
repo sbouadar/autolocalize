@@ -9,11 +9,13 @@ import adminRoutes from "./routes/admin.js";
 import authRoutes from "./routes/auth.js";
 import commandRoutes from "./routes/commands.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import eventRoutes from "./routes/events.js";
 import healthRoutes from "./routes/health.js";
 import meRoutes from "./routes/me.js";
 import publicRoutes from "./routes/public.js";
 import tenantRoutes from "./routes/tenant.js";
 import vehicleRoutes from "./routes/vehicles.js";
+import zoneRoutes from "./routes/zones.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -61,6 +63,8 @@ export async function buildApp() {
       await api.register(commandRoutes);
       await api.register(dashboardRoutes);
       await api.register(tenantRoutes);
+      await api.register(zoneRoutes);
+      await api.register(eventRoutes);
       await api.register(adminRoutes);
     },
     { prefix: "/api" },

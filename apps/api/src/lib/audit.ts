@@ -10,7 +10,10 @@ export type AuditAction =
   | "vehicle.assign"
   | "vehicle.update"
   | "vehicle.unassign"
-  | "branding.update";
+  | "branding.update"
+  | "zone.create"
+  | "zone.update"
+  | "zone.delete";
 
 /**
  * Trace une action d'administration. Ne jamais y mettre de secret (mot de passe, jeton) :

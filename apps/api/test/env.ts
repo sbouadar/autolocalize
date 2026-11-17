@@ -11,6 +11,7 @@ import { join } from "node:path";
 export const FAKE_TRACCAR_PORT = 18082;
 export const LOGO_DIR = join(tmpdir(), `autolocalize-test-logos-${process.pid}`);
 export const FAKE_TRACCAR_TOKEN = "test-traccar-token";
+export const EVENTS_SECRET = "test-events-secret-test-events-secret-0123";
 export const PUBLIC_URL = "http://localhost:3100";
 
 Object.assign(process.env, {
@@ -21,6 +22,7 @@ Object.assign(process.env, {
   BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123456789",
   TRACCAR_URL: `http://127.0.0.1:${FAKE_TRACCAR_PORT}`,
   TRACCAR_TOKEN: FAKE_TRACCAR_TOKEN,
+  TRACCAR_EVENTS_SECRET: EVENTS_SECRET,
   CORS_ORIGINS: "",
   LOGO_DIR,
 });

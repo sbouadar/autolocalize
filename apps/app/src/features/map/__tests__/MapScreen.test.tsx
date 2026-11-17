@@ -12,6 +12,7 @@ jest.mock("@/lib/vehicles", () => ({
   ...jest.requireActual("@/lib/vehicles"),
   useVehicles: () => mockQuery,
 }));
+jest.mock("@/lib/zones", () => ({ useZones: () => ({ data: { canEdit: true, zones: [] } }) }));
 jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
   __esModule: true,
   default: () => ({ width: mockWidth, height: 800, scale: 1, fontScale: 1 }),
