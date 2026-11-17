@@ -86,6 +86,8 @@ model Session {
   updatedAt DateTime @updatedAt
   ipAddress String?  @db.VarChar(64)
   userAgent String?  @db.Text
+  // « Se connecter en tant que » : client au nom duquel le super-admin agit pendant cette session.
+  actingTenantId String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -19,6 +19,7 @@ import {
   type TenantStatus,
 } from "@/lib/admin";
 import { ApiError, formMessage, userMessage } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { resolveBranding } from "@/lib/branding";
 import { useBranding } from "@/lib/branding-context";
 import { confirmAction } from "@/lib/confirm";
@@ -120,6 +121,7 @@ function VehicleRow({ vehicle, actions }: { vehicle: Vehicle; actions: Actions }
 export function TenantDetailScreen({ id }: { id: string }) {
   const router = useRouter();
   const platform = useBranding();
+  const { impersonate } = useAuth();
   const { data, isPending, error, refetch } = useTenantDetail(id);
   const audit = useAudit(id);
   const actions = useTenantActions(id);
@@ -176,6 +178,17 @@ export function TenantDetailScreen({ id }: { id: string }) {
         </View>
         <StatusBadge status={tenant.status} />
       </View>
+
+      <Button
+        label="Se connecter en tant que ce client"
+        variant="secondary"
+        onPress={() =>
+          void run(async () => {
+            await impersonate(id);
+            router.replace("/");
+          })
+        }
+      />
 
       {message ? <Banner message={message} tone="danger" /> : null}
       {credentials ? <CredentialsCard credentials={credentials} slug={tenant.slug} /> : null}

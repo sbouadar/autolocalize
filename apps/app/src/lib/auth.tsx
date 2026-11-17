@@ -12,6 +12,9 @@ interface AuthState {
   error: unknown;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Super-admin : utiliser l'application comme l'admin de ce client, jusqu'à stopImpersonation. */
+  impersonate: (tenantId: string) => Promise<void>;
+  stopImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -82,9 +85,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await forgetSession();
   }, [forgetSession]);
 
+  /** Changement de client vu par la session : aucune donnée de l'ancien ne doit rester à l'écran. */
+  const switchIdentity = useCallback(
+    async (path: string) => {
+      await api(path, { method: "POST", body: {} });
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_QUERY_KEY[0] });
+      queryClient.setQueryData(ME_QUERY_KEY, await fetchMe());
+    },
+    [queryClient],
+  );
+  const impersonate = useCallback(
+    (tenantId: string) => switchIdentity(`/admin/tenants/${encodeURIComponent(tenantId)}/impersonate`),
+    [switchIdentity],
+  );
+  const stopImpersonation = useCallback(() => switchIdentity("/me/impersonation/stop"), [switchIdentity]);
+
   const value = useMemo(
-    () => ({ me: data ?? null, loading: isPending, error, signIn, signOut }),
-    [data, isPending, error, signIn, signOut],
+    () => ({ me: data ?? null, loading: isPending, error, signIn, signOut, impersonate, stopImpersonation }),
+    [data, isPending, error, signIn, signOut, impersonate, stopImpersonation],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

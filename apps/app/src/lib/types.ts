@@ -38,6 +38,8 @@ export const meSchema = z.object({
     mustChangePassword: z.boolean().optional().default(false),
   }),
   tenant: tenantSchema.nullable(),
+  /** Super-admin connecté en tant que ce client : son rôle et son client sont ceux de l'admin du client. */
+  impersonating: z.boolean().optional().default(false),
 });
 export type Me = z.infer<typeof meSchema>;
 

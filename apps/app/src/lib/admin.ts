@@ -117,6 +117,11 @@ export const AUDIT_LABELS: Record<string, string> = {
   "vehicle.update": "Véhicule modifié",
   "vehicle.unassign": "Traceur retiré",
   "branding.update": "Branding modifié par le client",
+  "zone.create": "Zone créée",
+  "zone.update": "Zone modifiée",
+  "zone.delete": "Zone supprimée",
+  "impersonation.start": "Connexion en tant que ce client",
+  "impersonation.stop": "Fin de la connexion en tant que ce client",
 };
 
 const ADMIN_KEY = ["admin"] as const;

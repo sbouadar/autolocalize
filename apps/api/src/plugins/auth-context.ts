@@ -12,6 +12,13 @@ export interface CurrentUser {
   role: Role;
   tenantId: string | null;
   mustChangePassword: boolean;
+  /**
+   * true : super-admin qui agit au nom d'un client (« se connecter en tant que »). role et tenantId
+   * sont alors ceux d'un admin de ce client ; id reste celui du super-admin (journaux).
+   */
+  impersonating: boolean;
+  /** Session Better Auth en cours (pour entrer dans ce mode ou le quitter). */
+  sessionId: string;
 }
 
 /** Routes accessibles avec un mot de passe provisoire (méthode + motif de route Fastify). */
@@ -65,13 +72,25 @@ export default fp(async (app) => {
       });
     }
 
+    // « Se connecter en tant que » : le super-admin est vu comme l'admin du client choisi pour cette
+    // session. Il perd donc l'accès au back-office tant qu'il n'a pas quitté ce mode.
+    let acting: string | null = null;
+    if (user.role === "SUPER_ADMIN") {
+      const row = await prisma.session.findUnique({ where: { id: session.session.id }, select: { actingTenantId: true } });
+      if (row?.actingTenantId && (await prisma.tenant.findUnique({ where: { id: row.actingTenantId }, select: { id: true } }))) {
+        acting = row.actingTenantId;
+      }
+    }
+
     request.currentUser = {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
-      tenantId: user.tenantId,
+      role: acting ? "TENANT_ADMIN" : user.role,
+      tenantId: acting ?? user.tenantId,
       mustChangePassword: user.mustChangePassword,
+      impersonating: acting !== null,
+      sessionId: session.session.id,
     };
   });
 

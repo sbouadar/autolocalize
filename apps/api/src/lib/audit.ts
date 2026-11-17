@@ -13,7 +13,9 @@ export type AuditAction =
   | "branding.update"
   | "zone.create"
   | "zone.update"
-  | "zone.delete";
+  | "zone.delete"
+  | "impersonation.start"
+  | "impersonation.stop";
 
 /**
  * Trace une action d'administration. Ne jamais y mettre de secret (mot de passe, jeton) :

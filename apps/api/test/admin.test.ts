@@ -339,3 +339,55 @@ describe("Back-office : journal", () => {
     );
   });
 });
+
+describe("Se connecter en tant que un client", () => {
+  const impersonate = (headers: Headers | null, id = alphaId) => call(ctx.app, "POST", `/api/admin/tenants/${id}/impersonate`, headers);
+  const stop = (headers: Headers | null) => call(ctx.app, "POST", "/api/me/impersonation/stop", headers);
+
+  it("fait agir le super-admin comme l'admin du client, puis lui rend son rôle", async () => {
+    await prisma.vehicle.create({ data: { tenantId: alphaId, traccarDeviceId: 1, name: "A" } });
+    const bravo = await createTenant("bravo");
+    await prisma.vehicle.create({ data: { tenantId: bravo.id, traccarDeviceId: 2, name: "B" } });
+
+    assert.equal((await impersonate(root)).status, 204);
+    const me = await call(ctx.app, "GET", "/api/me", root);
+    assert.equal(me.json.impersonating, true);
+    assert.equal(me.json.user.role, "TENANT_ADMIN");
+    assert.equal(me.json.user.email, "root@autolocalize.test");
+    assert.equal(me.json.tenant.id, alphaId);
+
+    // Il ne voit que les véhicules de ce client, peut créer une zone, et n'a plus accès au back-office.
+    const vehicles = await call(ctx.app, "GET", "/api/vehicles", root);
+    assert.deepEqual(vehicles.json.vehicles.map((v: { name: string }) => v.name), ["A"]);
+    const zone = await call(ctx.app, "POST", "/api/zones", root, { name: "Dépôt", latitude: 33.5, longitude: -7.6, radiusM: 200 });
+    assert.equal(zone.status, 201);
+    assert.equal((await prisma.zone.findFirstOrThrow()).tenantId, alphaId);
+    assert.equal((await call(ctx.app, "GET", "/api/admin/tenants", root)).status, 403);
+
+    assert.equal((await stop(root)).status, 204);
+    const after = await call(ctx.app, "GET", "/api/me", root);
+    assert.equal(after.json.impersonating, false);
+    assert.equal(after.json.user.role, "SUPER_ADMIN");
+    assert.equal(after.json.tenant, null);
+    assert.equal((await call(ctx.app, "GET", "/api/admin/tenants", root)).status, 200);
+
+    const actions = (await prisma.auditLog.findMany({ orderBy: { createdAt: "asc" } })).map((l) => l.action);
+    assert.deepEqual(actions, ["impersonation.start", "zone.create", "impersonation.stop"]);
+  });
+
+  it("est réservé au super-admin et limité à la session en cours", async () => {
+    assert.equal((await impersonate(null)).status, 401);
+    assert.equal((await impersonate(alice)).status, 403);
+    assert.equal((await impersonate(viewer)).status, 403);
+    assert.equal((await impersonate(root, "inconnu")).status, 404);
+
+    assert.equal((await impersonate(root)).status, 204);
+    // Une autre session du même super-admin (autre appareil) n'est pas concernée.
+    const other = await login(ctx.app, "root@autolocalize.test");
+    assert.equal((await call(ctx.app, "GET", "/api/me", other)).json.user.role, "SUPER_ADMIN");
+    // Quitter ce mode sans y être est sans effet, pour tout utilisateur connecté.
+    assert.equal((await stop(alice)).status, 204);
+    assert.equal((await call(ctx.app, "GET", "/api/me", alice)).json.impersonating, false);
+    assert.equal((await stop(null)).status, 401);
+  });
+});

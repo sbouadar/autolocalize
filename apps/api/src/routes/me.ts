@@ -1,6 +1,7 @@
 import { fromNodeHeaders } from "better-auth/node";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { audit } from "../lib/audit.js";
 import { auth } from "../lib/auth.js";
 import { prisma } from "../lib/prisma.js";
 
@@ -42,7 +43,18 @@ const meRoutes: FastifyPluginAsync = async (app) => {
         mustChangePassword: user.mustChangePassword,
       },
       tenant,
+      // Super-admin connecté en tant que ce client : l'app affiche un bandeau pour quitter ce mode.
+      impersonating: user.impersonating,
     };
+  });
+
+  // Quitte le mode « connecté en tant que » : le super-admin retrouve son rôle et le back-office.
+  app.post("/me/impersonation/stop", { preHandler: app.requireAuth }, async (request, reply) => {
+    const user = request.currentUser!;
+    if (!user.impersonating) return reply.code(204).send();
+    await prisma.session.update({ where: { id: user.sessionId }, data: { actingTenantId: null } });
+    await audit(request, "impersonation.stop", { tenantId: user.tenantId, targetId: user.tenantId });
+    return reply.code(204).send();
   });
 
   // Changement de mot de passe : vérifie l'actuel, révoque les autres sessions (autres appareils)

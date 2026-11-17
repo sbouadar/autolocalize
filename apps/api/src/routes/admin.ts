@@ -272,6 +272,18 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     return { email: user.email, temporaryPassword };
   });
 
+  // « Se connecter en tant que » : le super-admin voit et utilise l'application comme l'admin de ce
+  // client (zones, branding, commandes…), pour cette session seulement, jusqu'à ce qu'il quitte ce
+  // mode (POST /me/impersonation/stop). Ses actions restent journalisées à son nom.
+  app.post("/admin/tenants/:id/impersonate", async (request, reply) => {
+    const id = parseId(request);
+    const tenant = id ? await prisma.tenant.findUnique({ where: { id }, select: { id: true, name: true } }) : null;
+    if (!tenant) return reply.notFound();
+    await prisma.session.update({ where: { id: request.currentUser!.sessionId }, data: { actingTenantId: tenant.id } });
+    await audit(request, "impersonation.start", { tenantId: tenant.id, targetId: tenant.id, details: { name: tenant.name } });
+    return reply.code(204).send();
+  });
+
   // ─── Traceurs ──────────────────────────────────────────────────────────────
 
   // Tous les appareils Traccar, avec leur client éventuel : sert à choisir un traceur libre.

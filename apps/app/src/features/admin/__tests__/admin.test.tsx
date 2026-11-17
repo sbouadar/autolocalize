@@ -14,6 +14,8 @@ jest.mock("@/lib/api", () => ({
   ...jest.requireActual("@/lib/api"),
   api: (...args: unknown[]) => mockApi(...args),
 }));
+const mockImpersonate = jest.fn();
+jest.mock("@/lib/auth", () => ({ useAuth: () => ({ impersonate: mockImpersonate }) }));
 jest.mock("@/lib/confirm", () => ({ confirmAction: (...args: unknown[]) => mockConfirm(...args) }));
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace, back: jest.fn(), push: jest.fn(), navigate: jest.fn() }),
@@ -143,6 +145,15 @@ describe("TenantDetailScreen", () => {
     expect(await screen.findByText("Alpha")).toBeTruthy();
     expect(screen.getByText("Camion 1")).toBeTruthy();
     expect(screen.getByText("alice@alpha.test")).toBeTruthy();
+  });
+
+  it("se connecte en tant que le client puis ouvre son espace", async () => {
+    mockImpersonate.mockReset().mockResolvedValue(undefined);
+    await render(<TenantDetailScreen id="t1" />);
+    await screen.findByText("Alpha");
+    await fireEvent.press(screen.getByRole("button", { name: "Se connecter en tant que ce client" }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+    expect(mockImpersonate).toHaveBeenCalledWith("t1");
   });
 
   it("demande confirmation avant de suspendre, et n'agit pas si on annule", async () => {
