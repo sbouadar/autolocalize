@@ -31,6 +31,7 @@ import { StatusBadge } from "./AdminHomeScreen";
 import { AssignVehicleForm } from "./AssignVehicleForm";
 import { AuditList } from "./AuditList";
 import { CredentialsCard } from "./CredentialsCard";
+import { TenantSettingsCard } from "./TenantSettingsCard";
 
 const STATUS_OPTIONS = (Object.keys(TENANT_STATUS_LABELS) as TenantStatus[]).map((key) => ({
   key,
@@ -197,6 +198,8 @@ export function TenantDetailScreen({ id }: { id: string }) {
         <SegmentedControl options={STATUS_OPTIONS} value={tenant.status} onChange={(s) => void changeStatus(s)} />
         <Text style={styles.muted}>{STATUS_WARNINGS[tenant.status]}</Text>
       </Card>
+
+      <TenantSettingsCard key={`${tenant.id}-${tenant.timezone}`} tenant={tenant} onUpdate={(body) => run(() => actions.update(body))} />
 
       <Card title={`Traceurs (${vehicles.length})`} right={assigning ? null : <Button label="Affecter un traceur" onPress={() => setAssigning(true)} />}>
         {!data.traccarAvailable ? <Banner message="Traccar est momentanément indisponible : états des traceurs inconnus." /> : null}

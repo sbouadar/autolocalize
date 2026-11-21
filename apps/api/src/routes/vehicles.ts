@@ -1,11 +1,13 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { addressOf } from "../lib/addresses.js";
+import { audit } from "../lib/audit.js";
 import { tenantScope, vehicleSelect, withLiveData, type VehicleRow } from "../lib/fleet.js";
 import { clampToAssignment, parsePeriod } from "../lib/period.js";
 import { prisma } from "../lib/prisma.js";
 import { fillZeroPositions, reliableTrip } from "../lib/positions.js";
 import { isPlausibleTrip, knotsToKmh, traccar } from "../lib/traccar.js";
+import { firstIssue } from "../lib/tenant-branding.js";
 
 const TRIPS_MAX_DAYS = 31;
 const ROUTE_MAX_DAYS = 7;
@@ -41,6 +43,46 @@ export function downsample<T>(points: T[], max: number): T[] {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/** Fiche du véhicule (informations saisies par l'admin du client). */
+export const vehicleDetailsSelect = {
+  brand: true,
+  model: true,
+  year: true,
+  vin: true,
+  fuelType: true,
+  color: true,
+  notes: true,
+} as const;
+
+/** Texte facultatif : chaîne vide → null (effacement). */
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .transform((v) => (v ? v : null));
+
+const updateDetailsBody = z
+  .object({
+    name: z.string().trim().min(1).max(191),
+    plate: optionalText(32),
+    brand: optionalText(64),
+    model: optionalText(64),
+    year: z
+      .number()
+      .int()
+      .min(1950)
+      .max(new Date().getFullYear() + 1)
+      .nullable(),
+    vin: optionalText(32).refine((v) => v == null || /^[A-Za-z0-9]{5,32}$/.test(v), "Numéro de série (VIN) invalide"),
+    fuelType: z.enum(["GASOLINE", "DIESEL", "HYBRID", "ELECTRIC", "LPG", "OTHER"]).nullable(),
+    color: optionalText(32),
+    notes: optionalText(2000),
+  })
+  .partial()
+  .strict();
+
 const vehicleRoutes: FastifyPluginAsync = async (app) => {
   // Véhicules du client connecté, complétés par l'état et la dernière position Traccar.
   app.get("/vehicles", { preHandler: app.requireAuth }, async (request) => {
@@ -56,9 +98,39 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
   app.get("/vehicles/:id", { preHandler: app.requireAuth }, async (request, reply) => {
     const vehicle = await findOwnedVehicle(request);
     if (!vehicle) return reply.notFound();
-    const { liveDataAvailable, vehicles } = await withLiveData([vehicle], request.log, request.currentUser!);
-    return { liveDataAvailable, vehicle: vehicles[0] };
+    const [{ liveDataAvailable, vehicles }, details] = await Promise.all([
+      withLiveData([vehicle], request.log, request.currentUser!),
+      prisma.vehicle.findUniqueOrThrow({ where: { id: vehicle.id }, select: vehicleDetailsSelect }),
+    ]);
+    return { liveDataAvailable, vehicle: { ...vehicles[0], details } };
   });
+
+  // Fiche du véhicule : nom, plaque et informations, modifiables par l'admin du client.
+  app.put(
+    "/vehicles/:id",
+    { preHandler: [app.requireAuth, app.requireRole("TENANT_ADMIN")] },
+    async (request, reply) => {
+      const vehicle = await findOwnedVehicle(request);
+      if (!vehicle) return reply.notFound();
+      const parsed = updateDetailsBody.safeParse(request.body);
+      if (!parsed.success) return reply.badRequest(firstIssue(parsed.error));
+
+      const updated = await prisma.vehicle.update({
+        where: { id: vehicle.id },
+        data: parsed.data,
+        select: { id: true, name: true, plate: true, ...vehicleDetailsSelect },
+      });
+      // Notes exclues du journal : texte libre, pas une donnée d'administration.
+      const { notes: _notes, ...logged } = parsed.data;
+      await audit(request, "vehicle.details.update", {
+        tenantId: vehicle.tenantId,
+        targetId: vehicle.id,
+        details: { ...logged, ...(parsed.data.notes !== undefined && { notes: "(modifiées)" }) },
+      });
+      const { id, name, plate, ...details } = updated;
+      return { vehicle: { id, name, plate, details } };
+    },
+  );
 
   // Trajets sur une période (rapport « trips » de Traccar).
   app.get("/vehicles/:id/trips", { preHandler: app.requireAuth, config: REPORT_RATE_LIMIT }, async (request, reply) => {

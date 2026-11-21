@@ -40,6 +40,10 @@ export const adminTenantSchema = z.object({
   secondaryColor: z.string(),
   status: tenantStatusSchema,
   traccarGroupId: z.number().nullable(),
+  currency: z.enum(["MAD", "EUR", "USD"]).catch("MAD").default("MAD"),
+  timezone: z.string().default("Africa/Casablanca"),
+  rentalsEnabled: z.boolean().default(false),
+  driversEnabled: z.boolean().default(false),
 });
 export type AdminTenant = z.infer<typeof adminTenantSchema>;
 
@@ -115,6 +119,9 @@ export const AUDIT_LABELS: Record<string, string> = {
   "tenant.password.reset": "Mot de passe réinitialisé",
   "vehicle.assign": "Traceur affecté",
   "vehicle.update": "Véhicule modifié",
+  "vehicle.details.update": "Fiche du véhicule modifiée par le client",
+  "odometer.create": "Relevé de compteur ajouté",
+  "odometer.delete": "Relevé de compteur supprimé",
   "vehicle.unassign": "Traceur retiré",
   "branding.update": "Branding modifié par le client",
   "zone.create": "Zone créée",

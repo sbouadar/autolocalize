@@ -44,7 +44,30 @@ const createTenantBody = z
   })
   .strict();
 
-const updateTenantBody = brandingBody.extend({ status: z.enum(["ACTIVE", "SUSPENDED", "CANCELLED"]).optional() }).strict();
+/** Fuseau IANA reconnu par le moteur JavaScript (ex. Africa/Casablanca, Europe/Paris). */
+const timezone = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine((tz) => {
+    try {
+      new Intl.DateTimeFormat("fr", { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }, "Fuseau horaire inconnu");
+
+const updateTenantBody = brandingBody
+  .extend({
+    status: z.enum(["ACTIVE", "SUSPENDED", "CANCELLED"]).optional(),
+    currency: z.enum(["MAD", "EUR", "USD"]).optional(),
+    timezone: timezone.optional(),
+    rentalsEnabled: z.boolean().optional(),
+    driversEnabled: z.boolean().optional(),
+  })
+  .strict();
 
 const HISTORY_MAX_YEARS = 5;
 

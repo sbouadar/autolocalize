@@ -24,6 +24,10 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ back: mockBack, canGoBack: () => true, replace: jest.fn() }),
 }));
 jest.mock("../EngineCard", () => ({ EngineCard: () => null }));
+// Compteur et informations : testés à part (OdometerCard.test.tsx, VehicleInfoCard.test.tsx).
+jest.mock("../OdometerCard", () => ({ OdometerCard: () => null }));
+jest.mock("../VehicleInfoCard", () => ({ VehicleInfoCard: () => null }));
+jest.mock("@/lib/auth", () => ({ useAuth: () => ({ me: null }) }));
 jest.mock("../../map/VehicleMap", () => ({
   VehicleMap: (props: typeof mockMapProps) => {
     mockMapProps = props;

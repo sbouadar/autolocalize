@@ -63,6 +63,7 @@ const eventRoutes: FastifyPluginAsync = async (app) => {
         longitude: true,
         speedKmh: true,
         detail: true,
+        message: true,
       },
     });
     return { alerts: rows.slice(0, limit), hasMore: rows.length > limit };

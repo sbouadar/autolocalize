@@ -3,6 +3,7 @@ const dateTime = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyl
 const time = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
 const dayTime = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const decimal = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
+const integer = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
 
 /** « 08:30 » ; avec le jour (« lun. 27 08:30 ») si demandé. */
 export function formatTime(iso: string | null | undefined, withDay = false): string {
@@ -19,6 +20,12 @@ export function formatDuration(ms: number | null | undefined): string {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
   return `${h} h ${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/** « 45 043 km » (compteur kilométrique, sans décimale). */
+export function formatKm(km: number | null | undefined): string {
+  if (km == null || !Number.isFinite(km)) return "—";
+  return `${integer.format(km)} km`;
 }
 
 /** « 12,3 km » */

@@ -16,14 +16,36 @@ const TYPE_BY_TRACCAR: Record<string, EventType> = {
   alarm: "ALARM",
 };
 
-export const EVENT_TYPES = ["ZONE_ENTER", "ZONE_EXIT", "OVERSPEED", "IGNITION_ON", "IGNITION_OFF", "DEVICE_ONLINE", "DEVICE_OFFLINE", "ALARM"] as const;
+/** Types produits par l'API elle-même (tâche planifiée : échéances, entretien, locations). */
+export const APP_EVENT_TYPES = [
+  "DOCUMENT_EXPIRING",
+  "DOCUMENT_EXPIRED",
+  "MAINTENANCE_DUE",
+  "MAINTENANCE_OVERDUE",
+  "RENTAL_OVERDUE",
+  "RENTAL_UNAUTHORIZED_USE",
+  "RENTAL_ZONE_EXIT",
+] as const;
+export type AppEventType = (typeof APP_EVENT_TYPES)[number];
+
+export const EVENT_TYPES = [
+  "ZONE_ENTER",
+  "ZONE_EXIT",
+  "OVERSPEED",
+  "IGNITION_ON",
+  "IGNITION_OFF",
+  "DEVICE_ONLINE",
+  "DEVICE_OFFLINE",
+  "ALARM",
+  ...APP_EVENT_TYPES,
+] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 /**
  * Types affichés dans la liste des alertes. Contact et retour en ligne sont enregistrés (ils
  * serviront aux règles : contact hors horaires…) mais ne sont pas des alertes en eux-mêmes.
  */
-export const ALERT_TYPES: EventType[] = ["ZONE_ENTER", "ZONE_EXIT", "OVERSPEED", "DEVICE_OFFLINE", "ALARM"];
+export const ALERT_TYPES: EventType[] = ["ZONE_ENTER", "ZONE_EXIT", "OVERSPEED", "DEVICE_OFFLINE", "ALARM", ...APP_EVENT_TYPES];
 
 // Message de Traccar : seuls les champs utilisés sont décrits, le reste est ignoré.
 const payloadSchema = z.object({
@@ -96,4 +118,42 @@ export async function recordTraccarEvent(body: unknown): Promise<RecordResult> {
     throw err;
   }
   return "stored";
+}
+
+export interface AppEventInput {
+  tenantId: string;
+  vehicleId: string | null;
+  vehicleName: string;
+  type: AppEventType;
+  eventTime: Date;
+  /**
+   * Clé unique de l'alerte : une passe de la tâche planifiée peut être rejouée sans doublon
+   * (ex. « deadline:<id>:2026-12-31:J-30 » ; la date dans la clé fait repartir l'alerte au renouvellement).
+   */
+  dedupKey: string;
+  message?: string | null;
+  rentalId?: string | null;
+}
+
+/** Enregistre une alerte produite par l'API, une seule fois par dedupKey. */
+export async function recordAppEvent(input: AppEventInput): Promise<"stored" | "duplicate"> {
+  try {
+    await prisma.event.create({
+      data: {
+        tenantId: input.tenantId,
+        vehicleId: input.vehicleId,
+        vehicleName: input.vehicleName,
+        type: input.type,
+        eventTime: input.eventTime,
+        source: "APP",
+        dedupKey: input.dedupKey.slice(0, 191),
+        message: input.message?.slice(0, 255) ?? null,
+        rentalId: input.rentalId ?? null,
+      },
+    });
+    return "stored";
+  } catch (err) {
+    if (typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002") return "duplicate";
+    throw err;
+  }
 }

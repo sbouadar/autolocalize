@@ -18,12 +18,20 @@ export const publicBrandingSchema = z.object({
 export type PublicBranding = z.infer<typeof publicBrandingSchema>;
 
 /** Client complet (après connexion), modifiable plus tard par l'admin client dans le back-office. */
+export const currencySchema = z.enum(["MAD", "EUR", "USD"]);
+export type Currency = z.infer<typeof currencySchema>;
+
 export const tenantSchema = publicBrandingSchema.extend({
   id: z.string(),
   slug: z.string(),
   address: nullableString,
   phone: nullableString,
   email: nullableString,
+  // Réglages métier, choisis par le super-admin (valeurs par défaut si l'API ne les renvoie pas).
+  currency: currencySchema.catch("MAD").default("MAD"),
+  timezone: z.string().default("Africa/Casablanca"),
+  rentalsEnabled: z.boolean().default(false),
+  driversEnabled: z.boolean().default(false),
 });
 export type Tenant = z.infer<typeof tenantSchema>;
 
@@ -77,10 +85,25 @@ export const vehiclesResponseSchema = z.object({
 });
 export type VehiclesResponse = z.infer<typeof vehiclesResponseSchema>;
 
+export const fuelTypeSchema = z.enum(["GASOLINE", "DIESEL", "HYBRID", "ELECTRIC", "LPG", "OTHER"]);
+export type FuelType = z.infer<typeof fuelTypeSchema>;
+
+/** Fiche du véhicule, renseignée par l'admin du client. */
+export const vehicleDetailsSchema = z.object({
+  brand: nullableString,
+  model: nullableString,
+  year: z.number().nullable(),
+  vin: nullableString,
+  fuelType: fuelTypeSchema.nullable().catch(null),
+  color: nullableString,
+  notes: nullableString,
+});
+export type VehicleDetails = z.infer<typeof vehicleDetailsSchema>;
+
 /** GET /vehicles/:id */
 export const vehicleResponseSchema = z.object({
   liveDataAvailable: z.boolean(),
-  vehicle: vehicleSchema,
+  vehicle: vehicleSchema.extend({ details: vehicleDetailsSchema.optional() }),
 });
 
 const pointSchema = z.object({ latitude: z.number(), longitude: z.number() });

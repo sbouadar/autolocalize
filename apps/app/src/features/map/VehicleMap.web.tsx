@@ -77,7 +77,17 @@ function Viewport({
 
   const selected = vehicles.find((v) => v.id === selectedId);
   useEffect(() => {
-    if (selected) map.flyTo(latLng(selected), Math.max(map.getZoom(), FOCUS_ZOOM), { duration: 0.6 });
+    if (!selected) return;
+    // Choisir un véhicule change la hauteur du panneau sous la carte, donc la taille de la carte :
+    // on attend la fin de cette mise en page (deux images), puis on recentre par un simple
+    // glissement (setView animé). flyTo dézoome et rezoome, ce qui faisait trembler l'image.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        map.invalidateSize({ animate: false });
+        map.setView(latLng(selected), Math.max(map.getZoom(), FOCUS_ZOOM), { animate: true, duration: 0.4 });
+      });
+    });
+    return () => cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, selectedId]);
 
@@ -88,6 +98,21 @@ function Viewport({
     else map.flyTo([focus.latitude, focus.longitude], Math.max(map.getZoom(), FOCUS_ZOOM - 1), { duration: 0.6 });
   }, [map, focus]);
 
+  return null;
+}
+
+/**
+ * Leaflet ne voit pas les changements de taille de son conteneur (panneau sous la carte qui grandit,
+ * rotation de l'écran) : sans invalidateSize, la carte reste calée sur l'ancienne taille puis saute.
+ */
+function SizeWatcher() {
+  const map = useMap();
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => map.invalidateSize({ animate: false }));
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
   return null;
 }
 
@@ -109,6 +134,7 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
     >
       <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} />
       <Viewport vehicles={vehicles} selectedId={selectedId} route={route} focus={focus} overview={overview} />
+      <SizeWatcher />
       <BackgroundClick onSelect={onSelect} onMapPress={onMapPress} />
       {zones?.map((z) => (
         // Non interactif : un clic dans une zone atteint le fond de carte ou le marqueur dessous.

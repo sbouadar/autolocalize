@@ -31,65 +31,79 @@ model Tenant {
   secondaryColor String       @default("#F59E0B") @db.VarChar(7)
   status         TenantStatus @default(ACTIVE)
   traccarGroupId Int?         @unique // groupe Traccar du client
+  // Réglages métier (plan des fonctions métier, M1) : devise des montants, fuseau des dates sans
+  // heure et des alertes quotidiennes, modules activables par client.
+  currency       Currency     @default(MAD)
+  timezone       String       @default("Africa/Casablanca") @db.VarChar(64)
+  rentalsEnabled Boolean      @default(false) // module location (réservations, départs et retours)
+  driversEnabled Boolean      @default(false) // module conducteurs (flottes d'entreprise)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  users      User[]
-  vehicles   Vehicle[]
-  commandLog CommandLog[]
-  zones      Zone[]
-  events     Event[]
+  users            User[]
+  vehicles         Vehicle[]
+  commandLog       CommandLog[]
+  zones            Zone[]
+  events           Event[]
+  odometerReadings OdometerReading[]
 
   @@map("tenants")
+}
+
+// Devise des montants d'un client (une seule, sans conversion).
+enum Currency {
+  MAD
+  EUR
+  USD
 }
 
 // ─── Authentification (Better Auth) ───────────────────────────────────────────
 
 enum Role {
-  SUPER_ADMIN  // exploitant de la plateforme, sans tenant
+  SUPER_ADMIN // exploitant de la plateforme, sans tenant
   TENANT_ADMIN // admin du client : branding, utilisateurs, commandes moteur
-  VIEWER       // lecture seule
+  VIEWER // lecture seule
 }
 
 model User {
-  id               String    @id
-  name             String    @db.VarChar(191)
-  email            String    @unique @db.VarChar(191)
-  emailVerified    Boolean   @default(false)
-  image            String?   @db.VarChar(500)
-  role             Role      @default(VIEWER)
-  tenantId         String?
-  traccarUserId    Int?      // utilisateur Traccar lié, si besoin
-  twoFactorEnabled Boolean?  @default(false)
+  id                 String   @id
+  name               String   @db.VarChar(191)
+  email              String   @unique @db.VarChar(191)
+  emailVerified      Boolean  @default(false)
+  image              String?  @db.VarChar(500)
+  role               Role     @default(VIEWER)
+  tenantId           String?
+  traccarUserId      Int? // utilisateur Traccar lié, si besoin
+  twoFactorEnabled   Boolean? @default(false)
   // Mot de passe provisoire (créé ou réinitialisé par le super-admin) : à changer avant tout accès.
-  mustChangePassword Boolean @default(false)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  tenant      Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  sessions    Session[]
-  accounts    Account[]
-  twoFactors  TwoFactor[]
-  pushTokens  PushToken[]
-  commandLog  CommandLog[]
-  auditLog    AuditLog[]
+  tenant     Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  sessions   Session[]
+  accounts   Account[]
+  twoFactors TwoFactor[]
+  pushTokens PushToken[]
+  commandLog CommandLog[]
+  auditLog   AuditLog[]
 
   @@index([tenantId])
   @@map("user")
 }
 
 model Session {
-  id        String   @id
-  expiresAt DateTime
-  token     String   @unique @db.VarChar(191)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  ipAddress String?  @db.VarChar(64)
-  userAgent String?  @db.Text
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique @db.VarChar(191)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?  @db.VarChar(64)
+  userAgent      String?  @db.Text
   // « Se connecter en tant que » : client au nom duquel le super-admin agit pendant cette session.
   actingTenantId String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("session")
@@ -145,24 +159,71 @@ model TwoFactor {
 // ─── Véhicules ────────────────────────────────────────────────────────────────
 
 model Vehicle {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   tenantId        String
-  traccarDeviceId Int      @unique // un traceur n'appartient qu'à un seul client
-  name            String   @db.VarChar(191)
-  plate           String?  @db.VarChar(32)
+  traccarDeviceId Int       @unique // un traceur n'appartient qu'à un seul client
+  name            String    @db.VarChar(191)
+  plate           String?   @db.VarChar(32)
   // Début de l'historique visible par le client (trajets, tracé, KPI). Par défaut l'affectation ;
   // le super-admin peut l'avancer (traceur neuf ou déjà chez ce client), jamais au profit d'un autre client.
-  historyStartAt  DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  historyStartAt  DateTime  @default(now())
+  // Fiche du véhicule, renseignée par l'admin du client (tout est facultatif).
+  brand           String?   @db.VarChar(64)
+  model           String?   @db.VarChar(64)
+  year            Int?
+  vin             String?   @db.VarChar(32)
+  fuelType        FuelType?
+  color           String?   @db.VarChar(32)
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  commandLog CommandLog[]
-  events     Event[]
-  zones      ZoneVehicle[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  commandLog       CommandLog[]
+  events           Event[]
+  zones            ZoneVehicle[]
+  odometerReadings OdometerReading[]
 
   @@index([tenantId])
   @@map("vehicles")
+}
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  HYBRID
+  ELECTRIC
+  LPG
+  OTHER
+}
+
+// Relevés du compteur kilométrique. Compteur estimé d'un véhicule = dernier relevé + distance GPS
+// parcourue depuis (somme des trajets, faussés compris une fois recalculés). On ne se fie pas au
+// totalDistance de Traccar seul : il est faussé par les sauts au point 0,0.
+model OdometerReading {
+  id        String         @id @default(cuid())
+  tenantId  String
+  vehicleId String
+  readAt    DateTime
+  km        Int
+  source    OdometerSource
+  rentalId  String? // relevé de départ ou de retour d'une location (module location)
+  createdBy String? // utilisateur (pas de clé étrangère : le relevé survit au compte), vide si automatique
+  createdAt DateTime       @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, readAt])
+  @@index([tenantId])
+  @@map("odometer_readings")
+}
+
+enum OdometerSource {
+  MANUAL
+  RENTAL_OUT
+  RENTAL_IN
+  MAINTENANCE
 }
 
 // ─── Zones (geofences) ────────────────────────────────────────────────────────
@@ -175,7 +236,7 @@ model Zone {
   name              String   @db.VarChar(100)
   latitude          Float
   longitude         Float
-  radiusM           Int      // rayon en mètres
+  radiusM           Int // rayon en mètres
   color             String   @default("#2563EB") @db.VarChar(7) // couleur d'affichage, attribuée à la création
   traccarGeofenceId Int      @unique
   createdAt         DateTime @default(now())
@@ -209,20 +270,26 @@ model ZoneVehicle {
 // Événements transmis par Traccar (entrée ou sortie de zone, excès de vitesse, contact, alarme…).
 // Le nom du véhicule et de la zone sont copiés : l'événement reste lisible après leur suppression.
 model Event {
-  id             String   @id @default(cuid())
+  id             String      @id @default(cuid())
   tenantId       String
   vehicleId      String?
-  vehicleName    String   @db.VarChar(191)
-  traccarEventId Int      @unique // évite d'enregistrer deux fois un événement retransmis
-  type           String   @db.VarChar(32) // voir EVENT_TYPES dans src/lib/events.ts
+  vehicleName    String      @db.VarChar(191)
+  // Événement transmis par Traccar : son identifiant évite de l'enregistrer deux fois. Vide pour un
+  // événement produit par l'API (échéance, entretien, location), dédoublonné par dedupKey.
+  traccarEventId Int?        @unique
+  source         EventSource @default(TRACCAR)
+  dedupKey       String?     @unique @db.VarChar(191) // ex. « deadline:<id>:2026-12-31:J-30 »
+  rentalId       String? // location concernée (module location)
+  message        String?     @db.VarChar(255) // détail lisible d'un événement de l'API
+  type           String      @db.VarChar(32) // voir EVENT_TYPES dans src/lib/events.ts
   eventTime      DateTime
   zoneId         String?
-  zoneName       String?  @db.VarChar(100)
+  zoneName       String?     @db.VarChar(100)
   latitude       Float?
   longitude      Float?
   speedKmh       Float?
-  detail         String?  @db.VarChar(64) // type d'alarme Traccar (lowBattery, powerCut…)
-  createdAt      DateTime @default(now())
+  detail         String?     @db.VarChar(64) // type d'alarme Traccar (lowBattery, powerCut…)
+  createdAt      DateTime    @default(now())
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
@@ -233,6 +300,11 @@ model Event {
   @@map("events")
 }
 
+enum EventSource {
+  TRACCAR // transmis par Traccar (event.forward.url)
+  APP // produit par l'API (tâche planifiée)
+}
+
 // ─── Journal d'audit des commandes moteur ─────────────────────────────────────
 
 enum EngineCommand {
@@ -241,9 +313,9 @@ enum EngineCommand {
 }
 
 enum CommandStatus {
-  SENT     // acceptée par Traccar
+  SENT // acceptée par Traccar
   REJECTED // refusée par le backend (droits, vitesse, fréquence)
-  FAILED   // erreur Traccar ou réseau : la commande n'est pas partie
+  FAILED // erreur Traccar ou réseau : la commande n'est pas partie
   UNCERTAIN // envoyée à Traccar sans réponse (délai dépassé, coupure) : peut-être transmise au traceur
 }
 
@@ -254,17 +326,17 @@ model CommandLog {
   // Vide si le véhicule a été retiré du client depuis : le journal reste lisible grâce aux copies ci-dessous.
   vehicleId       String?
   vehicleName     String?       @db.VarChar(191) // nom du véhicule au moment de la commande
-  traccarDeviceId Int?          // traceur visé
+  traccarDeviceId Int? // traceur visé
   command         EngineCommand
   status          CommandStatus
   reason          String?       @db.VarChar(500) // motif du refus ou de l'échec
-  lastKnownSpeed  Float?        // vitesse (km/h) au moment de la demande
+  lastKnownSpeed  Float? // vitesse (km/h) au moment de la demande
   traccarResponse String?       @db.Text
   ipAddress       String?       @db.VarChar(64)
   createdAt       DateTime      @default(now())
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
@@ -276,14 +348,14 @@ model CommandLog {
 
 // Actions d'administration (clients, traceurs, comptes, branding). Jamais de secret dans details.
 model AuditLog {
-  id         String   @id @default(cuid())
-  actorId    String
-  action     String   @db.VarChar(64)  // ex. tenant.create, vehicle.assign
-  tenantId   String?  @db.VarChar(64)  // client concerné (pas de clé étrangère : le journal survit)
-  targetId   String?  @db.VarChar(64)
-  details    String?  @db.Text         // JSON
-  ipAddress  String?  @db.VarChar(64)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String   @db.VarChar(64) // ex. tenant.create, vehicle.assign
+  tenantId  String?  @db.VarChar(64) // client concerné (pas de clé étrangère : le journal survit)
+  targetId  String?  @db.VarChar(64)
+  details   String?  @db.Text // JSON
+  ipAddress String?  @db.VarChar(64)
+  createdAt DateTime @default(now())
 
   actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
 

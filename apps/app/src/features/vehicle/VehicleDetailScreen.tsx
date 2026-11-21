@@ -6,6 +6,7 @@ import { SegmentedControl } from "@/components/SegmentedControl";
 import { StatTile } from "@/components/StatTile";
 import { Banner, EmptyState, ErrorState, LoadingState } from "@/components/States";
 import { ApiError, userMessage } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding-context";
 import { formatCoordinates, formatDateTime, formatDistance, formatDuration, formatSpeed } from "@/lib/format";
 import { PERIODS, type PeriodKey } from "@/lib/period";
@@ -27,8 +28,10 @@ import {
 } from "@/lib/vehicles";
 import { VehicleMap } from "../map/VehicleMap";
 import { EngineCard } from "./EngineCard";
+import { OdometerCard } from "./OdometerCard";
 import { ReplayControls } from "./ReplayControls";
 import { TripList } from "./TripList";
+import { VehicleInfoCard } from "./VehicleInfoCard";
 
 const noop = () => {};
 
@@ -57,6 +60,8 @@ function BackLink() {
 export function VehicleDetailScreen({ id }: { id: string }) {
   const branding = useBranding();
   const vehicleQuery = useVehicle(id);
+  // Fiche et relevés modifiables par l'admin du client (et le super-admin connecté en tant que lui).
+  const canEdit = useAuth().me?.user.role === "TENANT_ADMIN";
   const [periodKey, setPeriodKey] = useState<PeriodKey>("today");
   const [selectedTrip, setSelectedTrip] = useState<number | null>(null);
   const tripsQuery = useTrips(id, periodKey);
@@ -129,6 +134,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
       </View>
 
       <EngineCard vehicle={vehicle} />
+      <OdometerCard vehicleId={vehicle.id} canEdit={canEdit} />
 
       {vehicleQuery.data?.liveDataAvailable === false ? (
         <Banner message="Suivi en direct momentanément indisponible : position et statut ne peuvent pas être affichés." />
@@ -191,6 +197,8 @@ export function VehicleDetailScreen({ id }: { id: string }) {
         <Text style={styles.muted}>Tracé simplifié : trop de positions sur cette période pour toutes les afficher.</Text>
       ) : null}
       {routeQuery.isError ? <Banner message="Le tracé de la période n’a pas pu être chargé." /> : null}
+
+      <VehicleInfoCard vehicle={vehicle} canEdit={canEdit} />
     </ScrollView>
   );
 }

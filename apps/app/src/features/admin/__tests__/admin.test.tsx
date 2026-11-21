@@ -101,6 +101,10 @@ describe("TenantDetailScreen", () => {
       secondaryColor: "#F59E0B",
       status: "ACTIVE",
       traccarGroupId: 3,
+      currency: "MAD",
+      timezone: "Africa/Casablanca",
+      rentalsEnabled: false,
+      driversEnabled: false,
     },
     users: [{ id: "u1", name: "Alice", email: "alice@alpha.test", role: "TENANT_ADMIN", mustChangePassword: false }],
     traccarAvailable: true,
@@ -138,6 +142,18 @@ describe("TenantDetailScreen", () => {
       }
       return {};
     });
+  });
+
+  it("règle la devise, le fuseau et les modules du client", async () => {
+    await render(<TenantDetailScreen id="t1" />);
+    await screen.findByText("Alpha");
+    await fireEvent.press(screen.getByRole("radio", { name: "Euro (EUR)" }));
+    expect(mockApi).toHaveBeenCalledWith("/admin/tenants/t1", { method: "PUT", body: { currency: "EUR" } });
+    await fireEvent(screen.getByLabelText("Module Location"), "valueChange", true);
+    expect(mockApi).toHaveBeenCalledWith("/admin/tenants/t1", { method: "PUT", body: { rentalsEnabled: true } });
+    await fireEvent.changeText(screen.getByLabelText("Fuseau horaire"), "Europe/Paris");
+    await fireEvent.press(screen.getAllByRole("button", { name: "Enregistrer" })[0]!);
+    expect(mockApi).toHaveBeenCalledWith("/admin/tenants/t1", { method: "PUT", body: { timezone: "Europe/Paris" } });
   });
 
   it("affiche le client, ses traceurs et son compte", async () => {

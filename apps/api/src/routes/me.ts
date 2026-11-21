@@ -30,6 +30,11 @@ const meRoutes: FastifyPluginAsync = async (app) => {
             logoUrl: true,
             primaryColor: true,
             secondaryColor: true,
+            // Réglages métier : devise des montants, fuseau, modules activés.
+            currency: true,
+            timezone: true,
+            rentalsEnabled: true,
+            driversEnabled: true,
           },
         })
       : null;

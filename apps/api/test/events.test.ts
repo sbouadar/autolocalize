@@ -59,6 +59,7 @@ describe("Événements Traccar et alertes", () => {
         longitude: -7.6,
         speedKmh: 37,
         detail: null,
+        message: null,
       },
     );
     assert.equal((await alerts(bob)).json.alerts.length, 0);

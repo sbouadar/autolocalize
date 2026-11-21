@@ -5,7 +5,9 @@ import { buildApp } from "../src/app.js";
 import type { Role, TenantStatus } from "../src/generated/prisma/enums.js";
 import { prisma } from "../src/lib/prisma.js";
 import { resetAddressCache } from "../src/lib/addresses.js";
+import { resetOdometerCache } from "../src/lib/odometer.js";
 import { resetTripCache } from "../src/lib/positions.js";
+import { resetSchedulerState } from "../src/jobs/scheduler.js";
 import { resetTraccarCache } from "../src/lib/traccar.js";
 import { PUBLIC_URL } from "./env.js";
 import { startFakeTraccar, type FakeTraccar } from "./fake-traccar.js";
@@ -44,6 +46,7 @@ export async function resetState(ctx: TestContext) {
     prisma.twoFactor.deleteMany(),
     prisma.verification.deleteMany(),
     prisma.event.deleteMany(),
+    prisma.odometerReading.deleteMany(),
     prisma.zone.deleteMany(),
     prisma.vehicle.deleteMany(),
     prisma.user.deleteMany(),
@@ -53,6 +56,8 @@ export async function resetState(ctx: TestContext) {
   resetTraccarCache();
   resetAddressCache();
   resetTripCache();
+  resetOdometerCache();
+  resetSchedulerState();
 }
 
 export async function createTenant(slug: string, overrides: { status?: TenantStatus; name?: string } = {}) {
