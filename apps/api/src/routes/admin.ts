@@ -3,6 +3,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { audit } from "../lib/audit.js";
+import { dataKeysConfigured } from "../lib/crypto.js";
 import { clearLogo, decodeLogo, LOGO_ERRORS, logoBody, replaceLogo } from "../lib/logos.js";
 import { generateTemporaryPassword, resetToTemporaryPassword } from "../lib/passwords.js";
 import { prisma } from "../lib/prisma.js";
@@ -250,6 +251,14 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     if (!id || !(await prisma.tenant.findUnique({ where: { id }, select: { id: true } }))) return reply.notFound();
     const parsed = updateTenantBody.safeParse(request.body);
     if (!parsed.success) return reply.badRequest(firstIssue(parsed.error));
+    // Le module location chiffre des pièces d'identité : pas d'activation sans les clés.
+    if (parsed.data.rentalsEnabled && !dataKeysConfigured()) {
+      return reply.code(409).send({
+        statusCode: 409,
+        error: "Les clés de chiffrement (DATA_ENCRYPTION_KEY, DATA_HASH_KEY) ne sont pas configurées sur le serveur",
+        code: "DATA_KEYS_MISSING",
+      });
+    }
 
     const tenant = await prisma.tenant.update({ where: { id }, data: parsed.data });
     await audit(request, "tenant.update", { tenantId: id, targetId: id, details: parsed.data });
@@ -433,6 +442,14 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         })
       : null;
     if (!vehicle) return reply.notFound();
+    // Une location réservée ou en cours porte sur ce véhicule : la terminer ou l'annuler d'abord.
+    if (await prisma.rental.findFirst({ where: { vehicleId: vehicle.id, status: { in: ["RESERVED", "ONGOING"] } }, select: { id: true } })) {
+      return reply.code(409).send({
+        statusCode: 409,
+        error: "Ce véhicule a une location réservée ou en cours",
+        code: "VEHICLE_HAS_ACTIVE_RENTAL",
+      });
+    }
 
     await prisma.vehicle.delete({ where: { id: vehicle.id } });
     try {

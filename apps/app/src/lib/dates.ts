@@ -29,3 +29,21 @@ export function localDayBoundary(iso: string, edge: "start" | "end"): string {
   const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
   return new Date(y, m - 1, d + (edge === "end" ? 1 : 0)).toISOString();
 }
+
+/** « 9:30 », « 09h30 », « 0930 » → { hours: 9, minutes: 30 } ; null si l'heure n'existe pas. */
+export function parseTime(input: string): { hours: number; minutes: number } | null {
+  const m = /^\s*(\d{1,2})\s*[:hH.]?\s*(\d{2})?\s*$/.exec(input);
+  if (!m) return null;
+  const hours = Number(m[1]);
+  const minutes = m[2] ? Number(m[2]) : 0;
+  return hours <= 23 && minutes <= 59 ? { hours, minutes } : null;
+}
+
+/** Instant ISO d'une date (JJ/MM/AAAA) et d'une heure (HH:MM) saisies, en heure locale ; null si invalide. */
+export function parseLocalDateTime(date: string, time: string): string | null {
+  const day = parseFrenchDate(date);
+  const t = parseTime(time);
+  if (!day || !t) return null;
+  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
+  return new Date(y, m - 1, d, t.hours, t.minutes).toISOString();
+}

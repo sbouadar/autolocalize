@@ -2,6 +2,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
 import { Tabs } from "expo-router/js-tabs";
+import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding-context";
 import { colors, fonts } from "@/lib/theme";
 
@@ -21,6 +22,8 @@ function tabIcon(outline: IconName, filled: IconName) {
 
 export default function TabsLayout() {
   const branding = useBranding();
+  // Onglet « Locations » : seulement pour un client dont le module location est activé.
+  const rentalsEnabled = useAuth().me?.tenant?.rentalsEnabled === true;
   return (
     <Tabs
       screenOptions={{
@@ -34,6 +37,14 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: "Tableau de bord", tabBarLabel: "Accueil", tabBarIcon: tabIcon("view-dashboard-outline", "view-dashboard") }} />
       <Tabs.Screen name="map" options={{ title: "Carte", tabBarIcon: tabIcon("map-marker-outline", "map-marker") }} />
+      <Tabs.Screen
+        name="rentals"
+        options={{
+          title: "Locations",
+          tabBarIcon: tabIcon("calendar-month-outline", "calendar-month"),
+          tabBarItemStyle: rentalsEnabled ? undefined : { display: "none" },
+        }}
+      />
       <Tabs.Screen name="alerts" options={{ title: "Alertes", tabBarIcon: tabIcon("bell-outline", "bell") }} />
       <Tabs.Screen name="profile" options={{ title: "Profil", tabBarIcon: tabIcon("account-outline", "account") }} />
     </Tabs>

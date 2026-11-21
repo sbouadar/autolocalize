@@ -48,6 +48,8 @@ model Tenant {
   odometerReadings        OdometerReading[]
   vehicleUnavailabilities VehicleUnavailability[]
   vehicleDeadlines        VehicleDeadline[]
+  customers               Customer[]
+  rentals                 Rental[]
 
   @@map("tenants")
 }
@@ -190,6 +192,7 @@ model Vehicle {
   odometerReadings        OdometerReading[]
   vehicleUnavailabilities VehicleUnavailability[]
   vehicleDeadlines        VehicleDeadline[]
+  rentals                 Rental[]
 
   @@index([tenantId])
   @@map("vehicles")
@@ -292,6 +295,97 @@ enum DeadlineType {
   ROAD_TAX
   REGISTRATION
   OTHER
+}
+
+// ─── Locataires et réservations (M5, module location) ────────────────────────
+
+// Locataire (particulier ou société). Les numéros de pièce d'identité et de permis sont chiffrés par
+// l'API (src/lib/crypto.ts) : la base seule ne les révèle pas.
+model Customer {
+  id               String          @id @default(cuid())
+  tenantId         String
+  kind             CustomerKind    @default(PERSON)
+  name             String          @db.VarChar(191) // nom complet ou raison sociale
+  phone            String?         @db.VarChar(32)
+  email            String?         @db.VarChar(191)
+  address          String?         @db.VarChar(500)
+  birthDate        DateTime?       @db.Date
+  idDocumentType   IdDocumentType?
+  idDocumentEnc    String?         @db.VarChar(255) // n° de pièce, chiffré
+  idDocumentLast4  String?         @db.VarChar(4) // 4 derniers caractères, pour l'affichage masqué
+  idDocumentHash   String?         @db.Char(64) // HMAC du n° normalisé : recherche exacte et doublons
+  licenseNumberEnc String?         @db.VarChar(255) // n° de permis, chiffré
+  licenseLast4     String?         @db.VarChar(4)
+  licenseExpiresOn DateTime?       @db.Date
+  anonymizedAt     DateTime? // données personnelles effacées (droit à l'effacement)
+  notes            String?         @db.Text
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  rentals Rental[]
+
+  @@index([tenantId, name])
+  @@index([tenantId, idDocumentHash])
+  @@map("customers")
+}
+
+enum CustomerKind {
+  PERSON
+  COMPANY
+}
+
+enum IdDocumentType {
+  NATIONAL_ID
+  PASSPORT
+  RESIDENCE_PERMIT
+  OTHER
+}
+
+// Location d'un véhicule à un locataire. Le véhicule peut être retiré du client après coup : la
+// location reste lisible grâce aux copies de son nom et de sa plaque.
+model Rental {
+  id            String       @id @default(cuid())
+  tenantId      String
+  vehicleId     String?
+  vehicleName   String       @db.VarChar(191)
+  vehiclePlate  String?      @db.VarChar(32)
+  customerId    String
+  driverName    String?      @db.VarChar(191) // si le conducteur n'est pas le locataire
+  status        RentalStatus @default(RESERVED)
+  startAt       DateTime // prévu
+  endAt         DateTime // prévu
+  pickedUpAt    DateTime? // départ réel
+  returnedAt    DateTime? // retour réel
+  odometerOutKm Int?
+  odometerInKm  Int?
+  fuelOut       Int? // niveau en huitièmes (0 à 8)
+  fuelIn        Int?
+  gpsDistanceKm Float? // distance GPS entre départ et retour, calculée au retour
+  price         Decimal?     @db.Decimal(12, 2) // saisi à la main, dans la devise du client
+  deposit       Decimal?     @db.Decimal(12, 2)
+  allowedZoneId String? // zone que le véhicule ne doit pas quitter
+  notes         String?      @db.Text
+  createdBy     String
+  cancelledAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle  Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, startAt])
+  @@index([vehicleId, startAt])
+  @@index([customerId])
+  @@map("rentals")
+}
+
+enum RentalStatus {
+  RESERVED
+  ONGOING
+  COMPLETED
+  CANCELLED
 }
 
 // ─── Zones (geofences) ────────────────────────────────────────────────────────

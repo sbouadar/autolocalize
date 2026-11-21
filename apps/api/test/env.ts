@@ -23,6 +23,9 @@ Object.assign(process.env, {
   TRACCAR_URL: `http://127.0.0.1:${FAKE_TRACCAR_PORT}`,
   TRACCAR_TOKEN: FAKE_TRACCAR_TOKEN,
   TRACCAR_EVENTS_SECRET: EVENTS_SECRET,
+  // Clés de test du module location (32 octets en base64), sans valeur hors des tests.
+  DATA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
+  DATA_HASH_KEY: Buffer.alloc(32, 2).toString("base64"),
   CORS_ORIGINS: "",
   LOGO_DIR,
 });
