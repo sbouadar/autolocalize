@@ -91,8 +91,10 @@ describe("VehicleDetailScreen", () => {
     await render(<VehicleDetailScreen id="v1" />);
     expect(screen.getByText("Camion 1")).toBeTruthy();
     expect(screen.getByText("12345-A-6")).toBeTruthy();
-    expect(screen.getByText("En ligne")).toBeTruthy();
-    expect(screen.getByText("Contact coupé")).toBeTruthy();
+    // En ligne et immobile : bandeau « À l’arrêt », vitesse nulle.
+    expect(screen.getByLabelText("État : À l’arrêt")).toBeTruthy();
+    expect(screen.getByLabelText(/^Vitesse actuelle : 0\s?km\/h$/)).toBeTruthy();
+    expect(screen.getByLabelText("Contact : Coupé")).toBeTruthy();
     expect(screen.getByText("Port de Casablanca")).toBeTruthy();
   });
 
@@ -178,7 +180,7 @@ describe("VehicleDetailScreen", () => {
     mockVehicle = { data: undefined, isPending: false, error: new ApiError(404, "Not Found"), refetch: jest.fn() };
     await render(<VehicleDetailScreen id="autre" />);
     expect(screen.getByText("Véhicule introuvable")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("link", { name: "‹ Retour" }));
+    await fireEvent.press(screen.getByRole("link", { name: "Retour" }));
     expect(mockBack).toHaveBeenCalled();
   });
 

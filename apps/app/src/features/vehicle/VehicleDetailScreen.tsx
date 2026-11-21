@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -8,24 +9,14 @@ import { Banner, EmptyState, ErrorState, LoadingState } from "@/components/State
 import { ApiError, userMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding-context";
-import { formatCoordinates, formatDateTime, formatDistance, formatDuration, formatSpeed } from "@/lib/format";
+import { formatCoordinates, formatDateTime, formatDistance, formatDuration, formatSpeed, relativeTime } from "@/lib/format";
 import { PERIODS, type PeriodKey } from "@/lib/period";
 import type { ReplayFrame } from "@/lib/replay";
 import type { Place } from "@/lib/types";
 import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { pointsDuring, tripTotals } from "@/lib/trips";
 import { useDocumentTitle } from "@/lib/use-document-title";
-import {
-  hasPosition,
-  ignitionLabel,
-  lastSeen,
-  movementLabel,
-  useRoute,
-  useTrips,
-  useVehicle,
-  vehicleLabel,
-  vehicleStatus,
-} from "@/lib/vehicles";
+import { hasPosition, lastSeen, useRoute, useTrips, useVehicle, vehicleLabel, vehicleState } from "@/lib/vehicles";
 import { VehicleMap } from "../map/VehicleMap";
 import { EngineCard } from "./EngineCard";
 import { OdometerCard } from "./OdometerCard";
@@ -43,16 +34,29 @@ const NO_VEHICLES: never[] = [];
 
 function BackLink() {
   const router = useRouter();
-  const branding = useBranding();
   return (
     <Pressable
       accessibilityRole="link"
+      accessibilityLabel="Retour"
       onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
       hitSlop={8}
       style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}
     >
-      <Text style={[styles.backText, { color: branding.primaryText }]}>‹ Retour</Text>
+      <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
     </Pressable>
+  );
+}
+
+function Tile({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.tile} accessible accessibilityLabel={`${label} : ${value}`}>
+      <Text style={styles.tileLabel} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -109,31 +113,42 @@ export function VehicleDetailScreen({ id }: { id: string }) {
     );
   }
 
-  const status = vehicleStatus(vehicle);
+  const state = vehicleState(vehicle);
   const p = vehicle.position;
-  const facts = [
-    movementLabel(p),
-    ignitionLabel(p?.ignition),
-    p ? (p.address ?? formatCoordinates(p.latitude, p.longitude)) : null,
-    `Dernière information : ${formatDateTime(lastSeen(vehicle))}`,
-  ].filter((line): line is string => Boolean(line));
+  // Vitesse actuelle seulement pour un traceur en ligne : hors ligne, la dernière vitesse est périmée.
+  const speed = !p ? "—" : state.key === "moving" ? formatSpeed(p.speedKmh) : state.key === "stopped" ? formatSpeed(0) : "—";
+  const ignition = p?.ignition == null ? "—" : p.ignition ? "Mis" : "Coupé";
+  const place = p ? (p.address ?? formatCoordinates(p.latitude, p.longitude)) : "Position inconnue";
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <BackLink />
-
-      <View style={styles.card}>
-        <Text style={styles.title}>{vehicleLabel(vehicle)}</Text>
-        {vehicle.plate && vehicle.plate !== vehicle.name ? <Text style={styles.muted}>{vehicle.plate}</Text> : null}
-        <View style={styles.status}>
-          <View style={[styles.dot, { backgroundColor: status.color }]} />
-          <Text style={styles.statusText}>{status.label}</Text>
-        </View>
-        {facts.map((line) => (
-          <Text key={line} style={styles.fact}>
-            {line}
+      <View style={styles.header}>
+        <BackLink />
+        <View style={styles.flex}>
+          <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
+            {vehicleLabel(vehicle)}
           </Text>
-        ))}
+          {vehicle.plate && vehicle.plate !== vehicle.name ? <Text style={styles.muted}>{vehicle.plate}</Text> : null}
+        </View>
+      </View>
+
+      <View style={[styles.banner, { backgroundColor: state.color }]} accessible accessibilityLabel={`État : ${state.label}`}>
+        <View style={styles.bannerState}>
+          <MaterialCommunityIcons name="car" size={20} color={colors.onDark} />
+          <Text style={styles.bannerLabel}>{state.label}</Text>
+        </View>
+        <Text style={styles.bannerTime}>mis à jour {relativeTime(lastSeen(vehicle))}</Text>
+      </View>
+
+      <View style={styles.tilesRow}>
+        <Tile label="Vitesse actuelle" value={speed} />
+        <Tile label="Contact" value={ignition} />
+        <Tile label="Dernière position" value={formatDateTime(lastSeen(vehicle))} />
+      </View>
+
+      <View style={styles.place}>
+        <MaterialCommunityIcons name="map-marker" size={18} color={colors.text} />
+        <Text style={styles.placeText}>{place}</Text>
       </View>
 
       <EngineCard vehicle={vehicle} />
@@ -184,7 +199,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
             <StatTile label="Vitesse max" value={formatSpeed(totals.maxSpeedKmh)} />
           </View>
           {tripsQuery.data?.departure && tripsQuery.data.arrival ? (
-            <View style={styles.card}>
+            <View style={styles.places}>
               <Text style={styles.fact}>Départ : {placeLabel(tripsQuery.data.departure)}</Text>
               <Text style={styles.fact}>Arrivée : {placeLabel(tripsQuery.data.arrival)}</Text>
             </View>
@@ -209,24 +224,50 @@ export function VehicleDetailScreen({ id }: { id: string }) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   page: { padding: spacing.lg, gap: spacing.md, width: "100%", maxWidth: 900, alignSelf: "center" },
-  back: { alignSelf: "flex-start", paddingVertical: spacing.xs },
-  backText: { fontSize: 16, fontFamily: fonts.bold },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.xs,
+  header: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  back: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.fill,
   },
-  title: { fontSize: 22, fontFamily: fonts.heavy, color: colors.text },
-  status: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginVertical: spacing.xs },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  statusText: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
-  fact: { fontFamily: fonts.regular, fontSize: 15, color: colors.text },
+  title: { fontSize: 22, fontFamily: fonts.heavy, letterSpacing: -0.4, color: colors.text },
+  // Bandeau d'état : couleur fixe de l'état (jamais celle du client), texte blanc.
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    minHeight: 56,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    borderCurve: "continuous",
+  },
+  bannerState: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  bannerLabel: { fontFamily: fonts.heavy, fontSize: 17, color: colors.onDark },
+  bannerTime: { fontFamily: fonts.medium, fontSize: 13, color: colors.onDark },
+  tilesRow: { flexDirection: "row", gap: spacing.sm },
+  tile: {
+    flex: 1,
+    gap: 2,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderCurve: "continuous",
+    backgroundColor: colors.fill,
+  },
+  tileLabel: { fontFamily: fonts.medium, fontSize: 12, color: colors.muted },
+  tileValue: { fontFamily: fonts.heavy, fontSize: 18, letterSpacing: -0.3, color: colors.text, fontVariant: ["tabular-nums"] },
+  place: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  placeText: { flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.text },
+  places: { gap: spacing.xs, padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.fill },
+  fact: { fontFamily: fonts.regular, fontSize: 14, color: colors.text },
   muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
-  map: { height: 320, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
-  section: { fontSize: 18, fontFamily: fonts.heavy, color: colors.text, marginTop: spacing.sm },
+  map: { height: 320, borderRadius: radius.xl, overflow: "hidden" },
+  section: { fontSize: 18, fontFamily: fonts.heavy, letterSpacing: -0.3, color: colors.text, marginTop: spacing.md },
   loader: { marginVertical: spacing.xl },
   tiles: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   empty: { fontFamily: fonts.regular, fontSize: 15, color: colors.muted, textAlign: "center", marginVertical: spacing.lg },

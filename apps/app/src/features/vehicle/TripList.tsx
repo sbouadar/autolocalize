@@ -29,7 +29,7 @@ export function TripList({ trips, selectedIndex, onSelect, withDay }: TripListPr
             onPress={() => onSelect(selected ? null : index)}
             style={({ pressed }) => [
               styles.row,
-              selected && { borderColor: branding.primaryText, backgroundColor: branding.primarySoft },
+              selected && { backgroundColor: branding.primarySoft },
               pressed && { opacity: 0.8 },
             ]}
           >
@@ -52,14 +52,14 @@ export function TripList({ trips, selectedIndex, onSelect, withDay }: TripListPr
 }
 
 const styles = StyleSheet.create({
-  list: { gap: spacing.sm },
+  list: { gap: spacing.xs },
   row: {
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     gap: 2,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderCurve: "continuous",
+    backgroundColor: colors.fill,
   },
   head: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
   when: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
