@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { useBranding } from "@/lib/branding-context";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { SORT_KEYS, STATUS_FILTERS, type VehicleFilters } from "@/lib/vehicle-filters";
 
 interface VehicleFiltersBarProps {
@@ -20,7 +20,7 @@ export function VehicleFiltersBar({ filters, onChange, shown, total }: VehicleFi
 
   return (
     <View style={styles.container}>
-      <View style={[styles.search, focused && { borderColor: branding.primaryColor }]}>
+      <View style={[styles.search, focused && { borderColor: branding.primaryText }]}>
         <TextInput
           value={filters.query}
           onChangeText={(query) => set({ query })}
@@ -58,7 +58,7 @@ export function VehicleFiltersBar({ filters, onChange, shown, total }: VehicleFi
                 onPress={() => set({ sort: s.key })}
                 hitSlop={6}
               >
-                <Text style={[styles.sort, active && { color: branding.primaryColor, fontWeight: "700" }]}>{s.label}</Text>
+                <Text style={[styles.sort, active && { color: branding.primaryText, fontFamily: fonts.heavy }]}>{s.label}</Text>
               </Pressable>
             );
           })}
@@ -81,10 +81,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
-  input: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: spacing.sm },
-  clear: { fontSize: 22, lineHeight: 22, color: colors.muted },
+  input: { flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.text, paddingVertical: spacing.sm },
+  clear: { fontFamily: fonts.regular, fontSize: 22, lineHeight: 22, color: colors.muted },
   sortRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
   sorts: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
-  count: { fontSize: 13, color: colors.muted },
-  sort: { fontSize: 13, color: colors.text },
+  count: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  sort: { fontFamily: fonts.regular, fontSize: 13, color: colors.text },
 });

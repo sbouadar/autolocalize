@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 
 /** Bloc titré (profil, back-office). */
 export function Card({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
@@ -19,13 +19,12 @@ export function Card({ title, children, right }: { title: string; children: Reac
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.fill,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderCurve: "continuous",
     padding: spacing.lg,
     gap: spacing.md,
   },
   head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
-  title: { fontSize: 17, fontWeight: "700", color: colors.text, flexShrink: 1 },
+  title: { fontSize: 17, fontFamily: fonts.heavy, letterSpacing: -0.3, color: colors.text, flexShrink: 1 },
 });

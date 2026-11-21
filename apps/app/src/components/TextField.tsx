@@ -1,7 +1,7 @@
 import { useState, type ComponentRef, type Ref } from "react";
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 import { useBranding } from "@/lib/branding-context";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 
 interface TextFieldProps extends TextInputProps {
   label: string;
@@ -22,7 +22,7 @@ export function TextField({ label, error, onFocus, onBlur, ref, ...rest }: TextF
         placeholderTextColor={colors.muted}
         style={[
           styles.input,
-          focused && { borderColor: branding.primaryColor },
+          focused && { borderColor: branding.primaryText },
           error ? { borderColor: colors.danger } : null,
         ]}
         onFocus={(e) => {
@@ -46,16 +46,17 @@ export function TextField({ label, error, onFocus, onBlur, ref, ...rest }: TextF
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
-  label: { fontSize: 14, fontWeight: "500", color: colors.text },
+  label: { fontSize: 13, fontFamily: fonts.bold, color: colors.text },
   input: {
-    minHeight: 48,
-    borderWidth: 1,
+    minHeight: 50,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: radius.md,
+    borderCurve: "continuous",
     paddingHorizontal: spacing.md,
-    fontSize: 16,
+    fontFamily: fonts.regular, fontSize: 16,
     color: colors.text,
     backgroundColor: colors.surface,
   },
-  error: { fontSize: 13, color: colors.danger },
+  error: { fontFamily: fonts.regular, fontSize: 13, color: colors.danger },
 });

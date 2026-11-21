@@ -5,7 +5,7 @@ import { ALERTS_PAGE_SIZE, alertLabel, useAlerts, type Alert } from "@/lib/alert
 import { userMessage } from "@/lib/api";
 import { useBranding } from "@/lib/branding-context";
 import { formatDateTime, relativeTime } from "@/lib/format";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 
 function AlertRow({ alert }: { alert: Alert }) {
@@ -77,6 +77,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.xs,
   },
-  label: { fontSize: 16, fontWeight: "600", color: colors.text },
-  muted: { fontSize: 14, color: colors.muted },
+  label: { fontSize: 16, fontFamily: fonts.bold, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted },
 });

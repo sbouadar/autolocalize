@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding-context";
-import { colors, spacing } from "@/lib/theme";
+import { colors, fonts, spacing } from "@/lib/theme";
 import { TenantLogo } from "./TenantLogo";
 
 /** En-tête aux couleurs du client : logo, nom, déconnexion (et back-office pour le super-admin). */
@@ -43,7 +43,7 @@ export function AppHeader() {
     <View
       style={[
         styles.container,
-        { paddingTop: (me?.impersonating ? 0 : insets.top) + spacing.sm, borderBottomColor: branding.primaryColor },
+        { paddingTop: (me?.impersonating ? 0 : insets.top) + spacing.sm },
       ]}
     >
       <View style={styles.identity}>
@@ -60,7 +60,7 @@ export function AppHeader() {
             hitSlop={8}
             style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.6 }]}
           >
-            <Text style={[styles.signOutText, { color: branding.primaryColor }]}>Administration</Text>
+            <Text style={[styles.signOutText, { color: branding.primaryText }]}>Administration</Text>
           </Pressable>
         ) : null}
         <Pressable
@@ -70,7 +70,7 @@ export function AppHeader() {
           hitSlop={8}
           style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.6 }]}
         >
-          <Text style={[styles.signOutText, { color: branding.primaryColor }]}>Déconnexion</Text>
+          <Text style={[styles.signOutText, { color: colors.muted }]}>Déconnexion</Text>
         </Pressable>
       </View>
     </View>
@@ -86,7 +86,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
     backgroundColor: colors.surface,
-    borderBottomWidth: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   impersonation: {
     flexDirection: "row",
@@ -97,12 +98,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
     backgroundColor: colors.warningSoft,
   },
-  impersonationText: { fontSize: 14, fontWeight: "600", color: colors.warning, flexShrink: 1 },
+  impersonationText: { fontSize: 14, fontFamily: fonts.bold, color: colors.warning, flexShrink: 1 },
   quit: { paddingVertical: spacing.xs, paddingLeft: spacing.md },
-  quitText: { fontSize: 15, fontWeight: "700", color: colors.warning, textDecorationLine: "underline" },
+  quitText: { fontSize: 15, fontFamily: fonts.heavy, color: colors.warning, textDecorationLine: "underline" },
   identity: { flexDirection: "row", alignItems: "center", gap: spacing.md, flexShrink: 1 },
-  name: { fontSize: 17, fontWeight: "700", color: colors.text, flexShrink: 1 },
+  name: { fontSize: 17, fontFamily: fonts.heavy, letterSpacing: -0.3, color: colors.text, flexShrink: 1 },
   links: { flexDirection: "row", alignItems: "center" },
   signOut: { paddingVertical: spacing.sm, paddingLeft: spacing.md },
-  signOutText: { fontSize: 15, fontWeight: "600" },
+  signOutText: { fontSize: 14, fontFamily: fonts.bold },
 });

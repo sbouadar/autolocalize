@@ -5,7 +5,7 @@ import { SegmentedControl } from "@/components/SegmentedControl";
 import { useBranding } from "@/lib/branding-context";
 import { formatSpeed, formatTime } from "@/lib/format";
 import { frameAt, replayBounds, REPLAY_SPEEDS, type ReplayFrame, type ReplaySpeed } from "@/lib/replay";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import type { RoutePoint } from "@/lib/types";
 
 const TICK_MS = 100;
@@ -120,10 +120,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
-  time: { fontSize: 16, fontWeight: "700", color: colors.text },
-  close: { fontSize: 24, lineHeight: 24, color: colors.muted },
+  time: { fontSize: 16, fontFamily: fonts.heavy, color: colors.text },
+  close: { fontFamily: fonts.regular, fontSize: 24, lineHeight: 24, color: colors.muted },
   track: { height: 24, justifyContent: "center", borderRadius: 12, backgroundColor: colors.border, overflow: "hidden" },
   fill: { height: 24 },
   speeds: { flex: 1, maxWidth: 260 },
-  muted: { fontSize: 12, color: colors.muted },
+  muted: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
 });

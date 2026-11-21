@@ -3,6 +3,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { Branding } from "@/lib/branding";
 import { API_URL } from "@/lib/config";
+import { fonts } from "@/lib/theme";
 
 interface TenantLogoProps {
   branding: Branding;
@@ -45,5 +46,5 @@ export function TenantLogo({ branding, size = 48 }: TenantLogoProps) {
 
 const styles = StyleSheet.create({
   badge: { alignItems: "center", justifyContent: "center" },
-  initials: { fontWeight: "700" },
+  initials: { fontFamily: fonts.heavy },
 });

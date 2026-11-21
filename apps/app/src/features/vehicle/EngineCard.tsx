@@ -13,7 +13,7 @@ import {
 } from "@/lib/commands";
 import { confirmAction } from "@/lib/confirm";
 import { formatDateTime } from "@/lib/format";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import type { Vehicle } from "@/lib/types";
 import { isMoving } from "@/lib/vehicles";
 
@@ -110,9 +110,9 @@ export function EngineCard({ vehicle }: { vehicle: Vehicle }) {
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   action: { flexGrow: 1, flexBasis: 180 },
-  muted: { fontSize: 13, color: colors.muted },
-  subtitle: { fontSize: 14, fontWeight: "600", color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  subtitle: { fontSize: 14, fontFamily: fonts.bold, color: colors.text },
   history: { gap: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
-  ok: { fontSize: 14, color: colors.online, backgroundColor: "#F0FDF4", padding: spacing.sm, borderRadius: radius.sm },
-  error: { fontSize: 14, color: colors.danger, backgroundColor: colors.dangerSoft, padding: spacing.sm, borderRadius: radius.sm },
+  ok: { fontFamily: fonts.regular, fontSize: 14, color: colors.online, backgroundColor: colors.onlineSoft, padding: spacing.sm, borderRadius: radius.sm },
+  error: { fontFamily: fonts.regular, fontSize: 14, color: colors.danger, backgroundColor: colors.dangerSoft, padding: spacing.sm, borderRadius: radius.sm },
 });

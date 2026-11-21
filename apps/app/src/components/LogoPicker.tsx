@@ -1,5 +1,5 @@
 import { StyleSheet, Text } from "react-native";
-import { colors } from "@/lib/theme";
+import { colors, fonts } from "@/lib/theme";
 
 export interface LogoPickerProps {
   /** Image choisie, en data URL base64 (contrôlée ensuite par l'API). */
@@ -16,5 +16,5 @@ export function LogoPicker(_props: LogoPickerProps) {
 }
 
 const styles = StyleSheet.create({
-  note: { fontSize: 13, color: colors.muted },
+  note: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
 });

@@ -27,7 +27,7 @@ model Tenant {
   phone          String?      @db.VarChar(32)
   email          String?      @db.VarChar(191)
   logoUrl        String?      @db.VarChar(500)
-  primaryColor   String       @default("#1E3A8A") @db.VarChar(7)
+  primaryColor   String       @default("#141414") @db.VarChar(7)
   secondaryColor String       @default("#F59E0B") @db.VarChar(7)
   status         TenantStatus @default(ACTIVE)
   traccarGroupId Int?         @unique // groupe Traccar du client

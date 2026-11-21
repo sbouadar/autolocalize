@@ -11,7 +11,7 @@ import { formatCoordinates, formatDateTime, formatDistance, formatDuration, form
 import { PERIODS, type PeriodKey } from "@/lib/period";
 import type { ReplayFrame } from "@/lib/replay";
 import type { Place } from "@/lib/types";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { pointsDuring, tripTotals } from "@/lib/trips";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import {
@@ -48,7 +48,7 @@ function BackLink() {
       hitSlop={8}
       style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}
     >
-      <Text style={[styles.backText, { color: branding.primaryColor }]}>‹ Retour</Text>
+      <Text style={[styles.backText, { color: branding.primaryText }]}>‹ Retour</Text>
     </Pressable>
   );
 }
@@ -163,7 +163,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
       <SegmentedControl options={PERIODS} value={periodKey} onChange={changePeriod} />
 
       {tripsQuery.isPending ? (
-        <ActivityIndicator color={branding.primaryColor} style={styles.loader} accessibilityLabel="Chargement des trajets" />
+        <ActivityIndicator color={branding.primaryText} style={styles.loader} accessibilityLabel="Chargement des trajets" />
       ) : tripsQuery.isError ? (
         <ErrorState message={userMessage(tripsQuery.error)} onRetry={() => void tripsQuery.refetch()} />
       ) : (
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   page: { padding: spacing.lg, gap: spacing.md, width: "100%", maxWidth: 900, alignSelf: "center" },
   back: { alignSelf: "flex-start", paddingVertical: spacing.xs },
-  backText: { fontSize: 16, fontWeight: "600" },
+  backText: { fontSize: 16, fontFamily: fonts.bold },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -208,15 +208,15 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.xs,
   },
-  title: { fontSize: 22, fontWeight: "700", color: colors.text },
+  title: { fontSize: 22, fontFamily: fonts.heavy, color: colors.text },
   status: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginVertical: spacing.xs },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  statusText: { fontSize: 15, fontWeight: "600", color: colors.text },
-  fact: { fontSize: 15, color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
+  statusText: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
+  fact: { fontFamily: fonts.regular, fontSize: 15, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   map: { height: 320, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
-  section: { fontSize: 18, fontWeight: "700", color: colors.text, marginTop: spacing.sm },
+  section: { fontSize: 18, fontFamily: fonts.heavy, color: colors.text, marginTop: spacing.sm },
   loader: { marginVertical: spacing.xl },
   tiles: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  empty: { fontSize: 15, color: colors.muted, textAlign: "center", marginVertical: spacing.lg },
+  empty: { fontFamily: fonts.regular, fontSize: 15, color: colors.muted, textAlign: "center", marginVertical: spacing.lg },
 });

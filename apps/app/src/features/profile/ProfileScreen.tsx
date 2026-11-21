@@ -4,7 +4,7 @@ import { Card } from "@/components/Card";
 import { TenantLogo } from "@/components/TenantLogo";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding-context";
-import { colors, spacing } from "@/lib/theme";
+import { colors, fonts, spacing } from "@/lib/theme";
 import type { Role } from "@/lib/types";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { ChangePasswordForm } from "./ChangePasswordForm";
@@ -68,8 +68,8 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.lg, width: "100%", maxWidth: 640, alignSelf: "center" },
   row: { gap: 2 },
-  label: { fontSize: 13, color: colors.muted },
-  value: { fontSize: 15, color: colors.text },
+  label: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  value: { fontFamily: fonts.regular, fontSize: 15, color: colors.text },
   company: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  companyName: { flex: 1, fontSize: 17, fontWeight: "600", color: colors.text },
+  companyName: { flex: 1, fontSize: 17, fontFamily: fonts.bold, color: colors.text },
 });

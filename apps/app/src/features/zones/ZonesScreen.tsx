@@ -10,7 +10,7 @@ import { useBranding } from "@/lib/branding-context";
 import { confirmAction } from "@/lib/confirm";
 import { formatCoordinates } from "@/lib/format";
 import { OVERVIEW_RADIUS_M, positionedVehicles, sortVehicles, type LatLng } from "@/lib/map";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { useVehicles, vehicleLabel } from "@/lib/vehicles";
 import { selectZone, toggleZoneSelection, useSelectedZoneIds } from "@/lib/zone-selection";
@@ -32,7 +32,7 @@ import type { MapZone } from "../map/vehicle-map-props";
 
 const noop = () => {};
 /** Couleur du brouillon d'une nouvelle zone (la vraie couleur est attribuée à l'enregistrement). */
-const NEW_ZONE_COLOR = "#475569";
+const NEW_ZONE_COLOR = colors.muted;
 
 interface Draft {
   /** Absent : nouvelle zone. */
@@ -176,7 +176,7 @@ export function ZonesScreen() {
         hitSlop={8}
         style={({ pressed }) => pressed && { opacity: 0.6 }}
       >
-        <Text style={[styles.back, { color: branding.primaryColor }]}>‹ Carte</Text>
+        <Text style={[styles.back, { color: branding.primaryText }]}>‹ Carte</Text>
       </Pressable>
 
       <View style={styles.map}>
@@ -282,7 +282,7 @@ export function ZonesScreen() {
                   style={styles.zoneMain}
                 >
                   <View style={[styles.box, { borderColor: zone.color }, shown && { backgroundColor: zone.color }]}>
-                    {shown ? <Text style={[styles.tick, { color: "#FFFFFF" }]}>✓</Text> : null}
+                    {shown ? <Text style={[styles.tick, { color: colors.onDark }]}>✓</Text> : null}
                   </View>
                   <View style={styles.flex}>
                     <Text style={styles.zoneName}>{zone.name}</Text>
@@ -294,7 +294,7 @@ export function ZonesScreen() {
                 {canEdit ? (
                   <View style={styles.rowActions}>
                     <Pressable accessibilityRole="button" accessibilityLabel={`Modifier ${zone.name}`} onPress={() => startEdit(zone)} hitSlop={6}>
-                      <Text style={[styles.link, { color: branding.primaryColor }]}>Modifier</Text>
+                      <Text style={[styles.link, { color: branding.primaryText }]}>Modifier</Text>
                     </Pressable>
                     <Pressable accessibilityRole="button" accessibilityLabel={`Supprimer ${zone.name}`} onPress={() => void deleteZone(zone)} hitSlop={6}>
                       <Text style={[styles.link, { color: colors.danger }]}>Supprimer</Text>
@@ -313,11 +313,11 @@ export function ZonesScreen() {
 const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.lg, width: "100%", maxWidth: 900, alignSelf: "center" },
   flex: { flex: 1 },
-  back: { fontSize: 16, fontWeight: "600" },
+  back: { fontSize: 16, fontFamily: fonts.bold },
   map: { height: 380, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
-  muted: { fontSize: 14, color: colors.muted },
-  subtitle: { fontSize: 15, fontWeight: "700", color: colors.text },
-  error: { fontSize: 14, color: colors.danger },
+  muted: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted },
+  subtitle: { fontSize: 15, fontFamily: fonts.heavy, color: colors.text },
+  error: { fontFamily: fonts.regular, fontSize: 14, color: colors.danger },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.md, flexWrap: "wrap" },
   zone: {
     flexDirection: "row",
@@ -338,8 +338,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tick: { fontSize: 15, fontWeight: "700", lineHeight: 18 },
-  zoneName: { fontSize: 16, fontWeight: "600", color: colors.text },
+  tick: { fontSize: 15, fontFamily: fonts.heavy, lineHeight: 18 },
+  zoneName: { fontSize: 16, fontFamily: fonts.bold, color: colors.text },
   rowActions: { flexDirection: "row", gap: spacing.lg },
-  link: { fontSize: 15, fontWeight: "600" },
+  link: { fontSize: 15, fontFamily: fonts.bold },
 });

@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { TenantLogo } from "@/components/TenantLogo";
 import { ME_QUERY_KEY, useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding-context";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 
@@ -57,8 +57,8 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
   },
   header: { alignItems: "center", gap: spacing.sm },
-  title: { fontSize: 20, fontWeight: "700", color: colors.text, textAlign: "center" },
-  subtitle: { fontSize: 14, color: colors.muted, textAlign: "center" },
+  title: { fontSize: 20, fontFamily: fonts.heavy, color: colors.text, textAlign: "center" },
+  subtitle: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, textAlign: "center" },
   signOut: { alignSelf: "center", padding: spacing.sm },
-  signOutText: { fontSize: 15, color: colors.muted },
+  signOutText: { fontFamily: fonts.regular, fontSize: 15, color: colors.muted },
 });

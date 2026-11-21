@@ -1,3 +1,5 @@
+import { colors } from "./theme";
+
 // Branding du client, tel que l'admin client le saisira dans le back-office.
 // Règle : chaque champ peut être absent, vide ou invalide, l'affichage doit toujours rester correct.
 // Les champs marqués « BO futur » ne sont pas encore renvoyés par l'API : ils sont prévus ici
@@ -24,6 +26,11 @@ export interface Branding {
   secondaryColor: string;
   /** Couleur du texte posé sur primaryColor (noir ou blanc selon le contraste). */
   onPrimary: string;
+  /**
+   * Couleur de marque utilisable pour du texte ou une icône sur fond clair : primaryColor si elle
+   * y reste lisible, sinon le noir du thème (cas d'une marque jaune ou très pâle).
+   */
+  primaryText: string;
   /** primaryColor très atténuée, pour les fonds de sélection. */
   primarySoft: string;
   /** Initiales affichées quand il n'y a pas de logo (ou qu'il ne se charge pas). */
@@ -39,7 +46,8 @@ export interface Branding {
 
 export const PLATFORM_NAME = "AutoLocalize";
 
-const DEFAULT_PRIMARY = "#1E3A8A";
+// Noir adouci : la plateforme reste neutre tant que le client n'a pas choisi sa couleur.
+const DEFAULT_PRIMARY = "#141414";
 const DEFAULT_SECONDARY = "#F59E0B";
 
 const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -72,7 +80,15 @@ export function readableTextOn(hex: string): string {
   const l = luminance(hex);
   const contrastWhite = 1.05 / (l + 0.05);
   const contrastBlack = (l + 0.05) / 0.05;
-  return contrastWhite >= contrastBlack ? "#FFFFFF" : "#0F172A";
+  return contrastWhite >= contrastBlack ? colors.onDark : colors.text;
+}
+
+/** Contraste minimal (WCAG) d'un élément graphique ou d'un texte gras sur fond blanc. */
+const MIN_CONTRAST_ON_LIGHT = 3;
+
+/** La couleur elle-même si elle se lit sur fond clair, sinon le noir du thème. */
+export function readableOnLight(hex: string): string {
+  return 1.05 / (luminance(hex) + 0.05) >= MIN_CONTRAST_ON_LIGHT ? hex : colors.text;
 }
 
 export function withAlpha(hex: string, alpha: number): string {
@@ -114,6 +130,7 @@ export function resolveBranding(input?: BrandingInput | null): Branding {
     primaryColor,
     secondaryColor: normalizeHex(input?.secondaryColor, DEFAULT_SECONDARY),
     onPrimary: readableTextOn(primaryColor),
+    primaryText: readableOnLight(primaryColor),
     primarySoft: withAlpha(primaryColor, 0.1),
     initials: initialsOf(resolvedName),
     address: clean(input?.address),

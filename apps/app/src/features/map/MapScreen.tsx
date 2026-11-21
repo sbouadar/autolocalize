@@ -7,7 +7,7 @@ import { Banner, EmptyState, ErrorState, LoadingState } from "@/components/State
 import { userMessage } from "@/lib/api";
 import { useBranding } from "@/lib/branding-context";
 import { positionedVehicles } from "@/lib/map";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { applyFilters, DEFAULT_FILTERS, isFiltered, type VehicleFilters } from "@/lib/vehicle-filters";
 import { useVehicles } from "@/lib/vehicles";
@@ -157,6 +157,6 @@ const styles = StyleSheet.create({
     zIndex: 1100,
   },
   zonesLink: { position: "absolute", top: spacing.md, right: spacing.md, zIndex: 1100 },
-  mapNoticeText: { fontSize: 14, color: colors.muted },
+  mapNoticeText: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted },
   toggle: { margin: spacing.md },
 });

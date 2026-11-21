@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { Credentials } from "@/lib/admin";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 
 const PUBLIC_ORIGIN = "https://autolocalize.net";
 
@@ -41,9 +41,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.xs,
   },
-  title: { fontSize: 16, fontWeight: "700", color: colors.text },
-  warning: { fontSize: 13, color: colors.warning, marginBottom: spacing.sm },
-  label: { fontSize: 12, color: colors.muted, marginTop: spacing.xs },
-  value: { fontSize: 15, color: colors.text },
-  password: { fontSize: 20, fontWeight: "700", letterSpacing: 1, fontFamily: "monospace" },
+  title: { fontSize: 16, fontFamily: fonts.heavy, color: colors.text },
+  warning: { fontFamily: fonts.regular, fontSize: 13, color: colors.warning, marginBottom: spacing.sm },
+  label: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: spacing.xs },
+  value: { fontFamily: fonts.regular, fontSize: 15, color: colors.text },
+  password: { fontSize: 20, letterSpacing: 1, fontFamily: "monospace" },
 });

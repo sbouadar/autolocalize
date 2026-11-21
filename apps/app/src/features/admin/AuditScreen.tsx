@@ -3,7 +3,7 @@ import { Card } from "@/components/Card";
 import { ErrorState, LoadingState } from "@/components/States";
 import { useAudit } from "@/lib/admin";
 import { userMessage } from "@/lib/api";
-import { colors, spacing } from "@/lib/theme";
+import { colors, fonts, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { AuditList } from "./AuditList";
 
@@ -31,5 +31,5 @@ export function AuditScreen() {
 
 const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.lg, width: "100%", maxWidth: 960, alignSelf: "center" },
-  title: { fontSize: 22, fontWeight: "700", color: colors.text },
+  title: { fontSize: 22, fontFamily: fonts.heavy, color: colors.text },
 });

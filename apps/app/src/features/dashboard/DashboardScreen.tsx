@@ -10,7 +10,7 @@ import { useBranding } from "@/lib/branding-context";
 import { useKpis } from "@/lib/dashboard";
 import { formatDistance, formatDuration, formatSpeed } from "@/lib/format";
 import { DASHBOARD_PERIODS, type PeriodKey } from "@/lib/period";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import type { Kpis } from "@/lib/types";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { vehicleLabel } from "@/lib/vehicles";
@@ -134,10 +134,10 @@ export function DashboardScreen() {
 
 const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.lg, width: "100%", maxWidth: 960, alignSelf: "center" },
-  hello: { fontSize: 22, fontWeight: "700", color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
+  hello: { fontSize: 22, fontFamily: fonts.heavy, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   section: { gap: spacing.sm },
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: colors.text },
+  sectionTitle: { fontSize: 17, fontFamily: fonts.heavy, color: colors.text },
   tiles: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   ranking: {
     backgroundColor: colors.surface,
@@ -149,8 +149,8 @@ const styles = StyleSheet.create({
   },
   rankRow: { gap: spacing.xs },
   rankHead: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
-  rankName: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
-  rankValue: { fontSize: 15, fontWeight: "600", color: colors.text },
+  rankName: { flex: 1, fontSize: 15, fontFamily: fonts.bold, color: colors.text },
+  rankValue: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
   bar: { height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: "hidden" },
   barFill: { height: 6, borderRadius: 3 },
 });

@@ -24,7 +24,7 @@ import { resolveBranding } from "@/lib/branding";
 import { useBranding } from "@/lib/branding-context";
 import { confirmAction } from "@/lib/confirm";
 import { relativeTime } from "@/lib/format";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { vehicleStatus } from "@/lib/vehicles";
 import { StatusBadge } from "./AdminHomeScreen";
@@ -245,19 +245,19 @@ export function TenantDetailScreen({ id }: { id: string }) {
 
 const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.lg, width: "100%", maxWidth: 820, alignSelf: "center" },
-  back: { fontSize: 16, fontWeight: "600" },
+  back: { fontSize: 16, fontFamily: fonts.bold },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   flex: { flex: 1 },
-  title: { fontSize: 22, fontWeight: "700", color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
+  title: { fontSize: 22, fontFamily: fonts.heavy, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   vehicle: { gap: spacing.xs, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   vehicleHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  vehicleName: { fontSize: 15, fontWeight: "600", color: colors.text },
+  vehicleName: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
   rowActions: { flexDirection: "row", gap: spacing.md },
-  link: { fontSize: 14, fontWeight: "600", color: colors.text },
+  link: { fontSize: 14, fontFamily: fonts.bold, color: colors.text },
   form: { gap: spacing.sm },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm },
-  error: { fontSize: 13, color: colors.danger },
+  error: { fontFamily: fonts.regular, fontSize: 13, color: colors.danger },
   user: { gap: 2, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: colors.background },
   logoRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
 });

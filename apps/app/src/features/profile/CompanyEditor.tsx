@@ -6,7 +6,7 @@ import { Button } from "@/components/Button";
 import { LogoPicker } from "@/components/LogoPicker";
 import { api, formMessage } from "@/lib/api";
 import { ME_QUERY_KEY } from "@/lib/auth";
-import { colors, spacing } from "@/lib/theme";
+import { colors, fonts, spacing } from "@/lib/theme";
 import type { Tenant } from "@/lib/types";
 
 /** Modification par l'admin du client de son propre branding (nom, coordonnées, couleurs, logo). */
@@ -47,6 +47,6 @@ export function CompanyEditor({ tenant }: { tenant: Tenant }) {
 
 const styles = StyleSheet.create({
   editor: { gap: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
-  section: { fontSize: 15, fontWeight: "600", color: colors.text },
-  error: { fontSize: 13, color: colors.danger },
+  section: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
+  error: { fontFamily: fonts.regular, fontSize: 13, color: colors.danger },
 });

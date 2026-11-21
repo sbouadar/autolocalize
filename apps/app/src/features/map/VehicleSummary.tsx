@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { formatCoordinates, formatDateTime } from "@/lib/format";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, shadows, spacing } from "@/lib/theme";
 import type { Vehicle } from "@/lib/types";
 import { ignitionLabel, lastSeen, movementLabel, vehicleLabel, vehicleStatus } from "@/lib/vehicles";
 
@@ -66,26 +66,20 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.lg,
     gap: spacing.xs,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    boxShadow: shadows.overlay,
     // Au-dessus des volets de Leaflet (z-index jusqu'à 1000) sur le web.
     zIndex: 1100,
   },
   header: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, marginBottom: spacing.xs },
   title: { flex: 1, gap: 2 },
-  name: { fontSize: 17, fontWeight: "700", color: colors.text },
+  name: { fontSize: 17, fontFamily: fonts.heavy, color: colors.text },
   status: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  muted: { fontSize: 13, color: colors.muted },
-  detail: { fontSize: 14, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  detail: { fontFamily: fonts.regular, fontSize: 14, color: colors.text },
   actions: { marginTop: spacing.sm },
   close: { paddingHorizontal: spacing.xs },
-  closeText: { fontSize: 24, lineHeight: 24, color: colors.muted },
+  closeText: { fontFamily: fonts.regular, fontSize: 24, lineHeight: 24, color: colors.muted },
 });

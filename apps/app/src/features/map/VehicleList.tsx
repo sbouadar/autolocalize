@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBranding } from "@/lib/branding-context";
 import { relativeTime } from "@/lib/format";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import type { Vehicle } from "@/lib/types";
 import { lastSeen, movementLabel, vehicleLabel, vehicleStatus } from "@/lib/vehicles";
 
@@ -27,7 +27,7 @@ function VehicleRow({ vehicle, selected, onPress }: { vehicle: Vehicle; selected
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
-        selected && { backgroundColor: branding.primarySoft, borderColor: branding.primaryColor },
+        selected && { backgroundColor: branding.primarySoft, borderColor: branding.primaryText },
         pressed && styles.pressed,
       ]}
     >
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   dot: { width: 12, height: 12, borderRadius: 6 },
   main: { flex: 1, gap: 2 },
-  name: { fontSize: 16, fontWeight: "600", color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
-  time: { fontSize: 12, color: colors.muted, maxWidth: 110, textAlign: "right" },
+  name: { fontSize: 16, fontFamily: fonts.bold, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  time: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, maxWidth: 110, textAlign: "right" },
 });

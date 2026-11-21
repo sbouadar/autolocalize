@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useBranding } from "@/lib/branding-context";
 import { formatDistance, formatDuration, formatSpeed, formatTime } from "@/lib/format";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import type { Trip } from "@/lib/types";
 
 interface TripListProps {
@@ -29,7 +29,7 @@ export function TripList({ trips, selectedIndex, onSelect, withDay }: TripListPr
             onPress={() => onSelect(selected ? null : index)}
             style={({ pressed }) => [
               styles.row,
-              selected && { borderColor: branding.primaryColor, backgroundColor: branding.primarySoft },
+              selected && { borderColor: branding.primaryText, backgroundColor: branding.primarySoft },
               pressed && { opacity: 0.8 },
             ]}
           >
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   head: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
-  when: { fontSize: 15, fontWeight: "600", color: colors.text },
-  distance: { fontSize: 15, fontWeight: "600", color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
+  when: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
+  distance: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
 });

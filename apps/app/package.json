@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/manrope": "^0.4.3",
     "@tanstack/react-query": "^5.105.0",
     "expo": "~58.0.20",
     "expo-constants": "~58.0.13",
+    "expo-font": "~58.0.12",
     "expo-image": "~58.0.17",
     "expo-linking": "~58.0.14",
     "expo-router": "~58.0.27",

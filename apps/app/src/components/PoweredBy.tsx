@@ -1,6 +1,6 @@
 import { StyleSheet, Text } from "react-native";
 import { PLATFORM_NAME, type Branding } from "@/lib/branding";
-import { colors } from "@/lib/theme";
+import { colors, fonts } from "@/lib/theme";
 
 /** Mention de la plateforme sous le branding d'un client (masquable plus tard depuis le BO). */
 export function PoweredBy({ branding }: { branding: Branding }) {
@@ -9,5 +9,5 @@ export function PoweredBy({ branding }: { branding: Branding }) {
 }
 
 const styles = StyleSheet.create({
-  text: { fontSize: 12, color: colors.muted, textAlign: "center" },
+  text: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, textAlign: "center" },
 });

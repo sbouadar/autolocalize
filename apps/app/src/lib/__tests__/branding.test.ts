@@ -1,4 +1,4 @@
-import { PLATFORM_NAME, readableTextOn, resolveBranding } from "../branding";
+import { PLATFORM_NAME, readableOnLight, readableTextOn, resolveBranding } from "../branding";
 
 describe("resolveBranding", () => {
   it("retombe sur le branding plateforme sans données", () => {
@@ -6,7 +6,7 @@ describe("resolveBranding", () => {
     expect(b.name).toBe(PLATFORM_NAME);
     expect(b.isPlatform).toBe(true);
     expect(b.logoUrl).toBeNull();
-    expect(b.primaryColor).toBe("#1E3A8A");
+    expect(b.primaryColor).toBe("#141414");
   });
 
   it("garde les valeurs valides du client", () => {
@@ -18,7 +18,7 @@ describe("resolveBranding", () => {
   });
 
   it("remplace les couleurs invalides et développe le format court", () => {
-    expect(resolveBranding({ name: "X", primaryColor: "rouge" }).primaryColor).toBe("#1E3A8A");
+    expect(resolveBranding({ name: "X", primaryColor: "rouge" }).primaryColor).toBe("#141414");
     expect(resolveBranding({ name: "X", primaryColor: "#abc" }).primaryColor).toBe("#AABBCC");
     expect(resolveBranding({ name: "X", secondaryColor: "" }).secondaryColor).toBe("#F59E0B");
   });
@@ -50,6 +50,18 @@ describe("resolveBranding", () => {
 describe("readableTextOn", () => {
   it("choisit le blanc sur fond foncé et le noir sur fond clair", () => {
     expect(readableTextOn("#1E3A8A")).toBe("#FFFFFF");
-    expect(readableTextOn("#FDE68A")).toBe("#0F172A");
+    expect(readableTextOn("#FDE68A")).toBe("#141414");
+  });
+});
+
+describe("readableOnLight", () => {
+  it("garde une couleur de marque lisible sur fond clair", () => {
+    expect(readableOnLight("#1E3A8A")).toBe("#1E3A8A");
+    expect(resolveBranding({ name: "X", primaryColor: "#1E3A8A" }).primaryText).toBe("#1E3A8A");
+  });
+
+  it("remplace une couleur trop claire par le noir du thème", () => {
+    expect(readableOnLight("#FACC15")).toBe("#141414");
+    expect(resolveBranding({ name: "X", primaryColor: "#FACC15" }).primaryText).toBe("#141414");
   });
 });

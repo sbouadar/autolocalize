@@ -5,12 +5,12 @@ import { Button } from "@/components/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/States";
 import { TENANT_STATUS_LABELS, useTenants, type TenantStatus } from "@/lib/admin";
 import { userMessage } from "@/lib/api";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { matchesQuery } from "@/lib/vehicle-filters";
 
 export const STATUS_COLORS: Record<TenantStatus, { fg: string; bg: string }> = {
-  ACTIVE: { fg: colors.online, bg: "#F0FDF4" },
+  ACTIVE: { fg: colors.online, bg: colors.onlineSoft },
   SUSPENDED: { fg: colors.warning, bg: colors.warningSoft },
   CANCELLED: { fg: colors.danger, bg: colors.dangerSoft },
 };
@@ -94,7 +94,7 @@ export function AdminHomeScreen() {
 const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.md, width: "100%", maxWidth: 960, alignSelf: "center" },
   head: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
-  title: { fontSize: 22, fontWeight: "700", color: colors.text },
+  title: { fontSize: 22, fontFamily: fonts.heavy, color: colors.text },
   actions: { flexDirection: "row", gap: spacing.sm },
   search: {
     minHeight: 44,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
-    fontSize: 16,
+    fontFamily: fonts.regular, fontSize: 16,
     color: colors.text,
   },
   list: { gap: spacing.sm },
@@ -119,8 +119,8 @@ const styles = StyleSheet.create({
   },
   dot: { width: 14, height: 14, borderRadius: 7 },
   main: { flex: 1, gap: 2 },
-  name: { fontSize: 16, fontWeight: "600", color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
+  name: { fontSize: 16, fontFamily: fonts.bold, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   badge: { borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 },
-  badgeText: { fontSize: 12, fontWeight: "700" },
+  badgeText: { fontSize: 12, fontFamily: fonts.heavy },
 });

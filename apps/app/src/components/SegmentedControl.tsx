@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useBranding } from "@/lib/branding-context";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 
 interface SegmentedControlProps<K extends string> {
   options: { key: K; label: string }[];
@@ -10,7 +10,7 @@ interface SegmentedControlProps<K extends string> {
   kind?: "tab" | "radio";
 }
 
-/** Choix exclusif entre quelques options, aux couleurs du client. */
+/** Choix exclusif entre quelques options, en pastilles ; la pastille active prend la couleur du client. */
 export function SegmentedControl<K extends string>({ options, value, onChange, kind = "radio" }: SegmentedControlProps<K>) {
   const branding = useBranding();
   return (
@@ -38,18 +38,16 @@ export function SegmentedControl<K extends string>({ options, value, onChange, k
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    padding: spacing.xs,
-    gap: spacing.xs,
-    borderRadius: radius.md,
-    backgroundColor: colors.border,
+    gap: spacing.sm,
   },
   item: {
     flex: 1,
     minHeight: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
+    borderRadius: radius.full,
+    backgroundColor: colors.fill,
+    paddingHorizontal: spacing.md,
   },
-  text: { fontSize: 15, fontWeight: "600" },
+  text: { fontSize: 14, fontFamily: fonts.bold },
 });

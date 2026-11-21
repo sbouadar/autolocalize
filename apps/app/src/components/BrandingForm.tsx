@@ -2,7 +2,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { formMessage } from "@/lib/api";
 import { resolveBranding } from "@/lib/branding";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { Button } from "./Button";
 import { TextField } from "./TextField";
 
@@ -29,7 +29,7 @@ export function validateBranding(v: BrandingValues): Errors {
   if (v.address.length > 500) errors.address = "500 caractères au maximum.";
   if (v.phone.trim() && !PHONE.test(v.phone.trim())) errors.phone = "Numéro de téléphone invalide.";
   if (v.email.trim() && !EMAIL.test(v.email.trim())) errors.email = "Adresse e-mail invalide.";
-  if (!HEX.test(v.primaryColor)) errors.primaryColor = "Format #RRGGBB, par exemple #1E3A8A.";
+  if (!HEX.test(v.primaryColor)) errors.primaryColor = "Format #RRGGBB, par exemple #141414.";
   if (!HEX.test(v.secondaryColor)) errors.secondaryColor = "Format #RRGGBB, par exemple #F59E0B.";
   return errors;
 }
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   color: { flexGrow: 1, flexBasis: 200, gap: spacing.xs },
   swatch: { height: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
   preview: { borderRadius: radius.md, padding: spacing.md, alignItems: "center" },
-  previewText: { fontSize: 15, fontWeight: "600" },
-  ok: { fontSize: 14, color: colors.online },
-  error: { fontSize: 14, color: colors.danger },
+  previewText: { fontSize: 15, fontFamily: fonts.bold },
+  ok: { fontFamily: fonts.regular, fontSize: 14, color: colors.online },
+  error: { fontFamily: fonts.regular, fontSize: 14, color: colors.danger },
 });

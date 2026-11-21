@@ -106,7 +106,7 @@ describe("ProfileScreen", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Modifier les informations" }));
     await fireEvent.changeText(screen.getByLabelText("Couleur principale"), "rouge");
     await fireEvent.press(screen.getByRole("button", { name: "Enregistrer" }));
-    expect(screen.getByText("Format #RRGGBB, par exemple #1E3A8A.")).toBeTruthy();
+    expect(screen.getByText("Format #RRGGBB, par exemple #141414.")).toBeTruthy();
     expect(mockApi).not.toHaveBeenCalled();
   });
 

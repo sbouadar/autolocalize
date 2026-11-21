@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { ApiError, api, userMessage } from "@/lib/api";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 
 // Mêmes bornes que l'API (apps/api/src/routes/me.ts).
 export const PASSWORD_MIN = 12;
@@ -107,6 +107,6 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
 
 const styles = StyleSheet.create({
   form: { gap: spacing.lg },
-  error: { fontSize: 14, color: colors.danger, backgroundColor: colors.dangerSoft, padding: spacing.md, borderRadius: radius.sm },
-  success: { fontSize: 14, color: colors.online, backgroundColor: "#F0FDF4", padding: spacing.md, borderRadius: radius.sm },
+  error: { fontFamily: fonts.regular, fontSize: 14, color: colors.danger, backgroundColor: colors.dangerSoft, padding: spacing.md, borderRadius: radius.sm },
+  success: { fontFamily: fonts.regular, fontSize: 14, color: colors.online, backgroundColor: colors.onlineSoft, padding: spacing.md, borderRadius: radius.sm },
 });

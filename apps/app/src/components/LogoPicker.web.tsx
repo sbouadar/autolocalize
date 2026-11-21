@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { colors, spacing } from "@/lib/theme";
+import { colors, fonts, spacing } from "@/lib/theme";
 import { Button } from "./Button";
 import type { LogoPickerProps } from "./LogoPicker";
 
@@ -42,6 +42,6 @@ export function LogoPicker({ onPick, disabled }: LogoPickerProps) {
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
-  hint: { fontSize: 12, color: colors.muted },
-  error: { fontSize: 13, color: colors.danger },
+  hint: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
+  error: { fontFamily: fonts.regular, fontSize: 13, color: colors.danger },
 });

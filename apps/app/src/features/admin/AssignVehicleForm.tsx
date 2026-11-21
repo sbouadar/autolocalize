@@ -7,7 +7,7 @@ import { useDevices, type AssignVehicleInput } from "@/lib/admin";
 import { formMessage, userMessage } from "@/lib/api";
 import { useBranding } from "@/lib/branding-context";
 import { relativeTime } from "@/lib/format";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 
 type Mode = "existing" | "imei";
 const IMEI = /^[0-9A-Za-z]{5,32}$/;
@@ -136,8 +136,8 @@ const styles = StyleSheet.create({
   devices: { gap: spacing.sm },
   taken: { opacity: 0.55, backgroundColor: colors.background },
   device: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, gap: 2 },
-  deviceName: { fontSize: 15, fontWeight: "600", color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
-  error: { fontSize: 14, color: colors.danger },
+  deviceName: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  error: { fontFamily: fonts.regular, fontSize: 14, color: colors.danger },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm },
 });

@@ -1,13 +1,13 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useBranding } from "@/lib/branding-context";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { Button } from "./Button";
 
 export function LoadingState({ label = "Chargement…" }: { label?: string }) {
   const branding = useBranding();
   return (
     <View style={styles.center} accessibilityLiveRegion="polite">
-      <ActivityIndicator size="large" color={branding.primaryColor} />
+      <ActivityIndicator size="large" color={branding.primaryText} />
       <Text style={styles.muted}>{label}</Text>
     </View>
   );
@@ -47,8 +47,8 @@ export function Banner({ message, tone = "warning" }: { message: string; tone?: 
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.xl },
-  title: { fontSize: 17, fontWeight: "600", color: colors.text, textAlign: "center" },
-  muted: { fontSize: 14, color: colors.muted, textAlign: "center" },
-  banner: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.sm },
-  bannerText: { fontSize: 14, fontWeight: "500" },
+  title: { fontSize: 17, fontFamily: fonts.bold, color: colors.text, textAlign: "center" },
+  muted: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, textAlign: "center" },
+  banner: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderRadius: radius.md },
+  bannerText: { fontSize: 14, fontFamily: fonts.medium },
 });

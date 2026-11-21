@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Circle, CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvent } from "react-leaflet";
 import { useBranding } from "@/lib/branding-context";
+import { colors } from "@/lib/theme";
 import { MAP_ATTRIBUTION, MAP_TILE_URL } from "@/lib/config";
 import { DEFAULT_REGION, DEFAULT_ZOOM, FOCUS_ZOOM, OVERVIEW_RADIUS_M, regionAround, type LatLng, type PositionedVehicle } from "@/lib/map";
 import { vehicleLabel, vehicleStatus } from "@/lib/vehicles";
@@ -117,7 +118,7 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
           center={[cursor.latitude, cursor.longitude]}
           radius={9}
           interactive={false}
-          pathOptions={{ color: "#FFFFFF", weight: 3, fillColor: branding.secondaryColor, fillOpacity: 1 }}
+          pathOptions={{ color: colors.onDark, weight: 3, fillColor: branding.secondaryColor, fillOpacity: 1 }}
         />
       ) : null}
       {vehicles.map((v) => {
@@ -129,7 +130,7 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
             radius={isSelected ? 11 : 8}
             bubblingMouseEvents={false}
             pathOptions={{
-              color: isSelected ? branding.primaryColor : "#FFFFFF",
+              color: isSelected ? branding.primaryColor : colors.onDark,
               weight: isSelected ? 4 : 2,
               fillColor: vehicleStatus(v).color,
               fillOpacity: 1,

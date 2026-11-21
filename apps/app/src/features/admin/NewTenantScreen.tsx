@@ -6,7 +6,7 @@ import { Card } from "@/components/Card";
 import { TextField } from "@/components/TextField";
 import { slugify, useCreateTenant, type Credentials } from "@/lib/admin";
 import { formMessage } from "@/lib/api";
-import { colors, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { CredentialsCard } from "./CredentialsCard";
 
@@ -154,8 +154,8 @@ export function NewTenantScreen() {
 
 const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.lg, width: "100%", maxWidth: 720, alignSelf: "center" },
-  title: { fontSize: 22, fontWeight: "700", color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
-  error: { fontSize: 14, color: colors.danger, backgroundColor: colors.dangerSoft, padding: spacing.md, borderRadius: radius.sm },
+  title: { fontSize: 22, fontFamily: fonts.heavy, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  error: { fontFamily: fonts.regular, fontSize: 14, color: colors.danger, backgroundColor: colors.dangerSoft, padding: spacing.md, borderRadius: radius.sm },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm },
 });

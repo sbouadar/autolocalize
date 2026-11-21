@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { AUDIT_LABELS, type AuditEntry } from "@/lib/admin";
 import { formatDateTime } from "@/lib/format";
-import { colors, spacing } from "@/lib/theme";
+import { colors, fonts, spacing } from "@/lib/theme";
 
 /** Résumé lisible des détails d'une action (champs simples uniquement). */
 export function describeDetails(details: unknown): string {
@@ -36,7 +36,7 @@ export function AuditList({ entries }: { entries: AuditEntry[] }) {
 const styles = StyleSheet.create({
   list: { gap: spacing.md },
   row: { gap: 2, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.sm },
-  action: { fontSize: 15, fontWeight: "600", color: colors.text },
-  muted: { fontSize: 13, color: colors.muted },
-  details: { fontSize: 12, color: colors.muted },
+  action: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
+  muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
+  details: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
 });
