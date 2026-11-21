@@ -18,6 +18,8 @@ jest.mock("@/lib/auth", () => ({
   useAuth: () => ({ me: { user: { name: "Alice" }, tenant: null } }),
 }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
+// Synthèse « À surveiller » : testée à part (FleetWatch.test.tsx).
+jest.mock("../FleetWatch", () => ({ FleetWatch: () => null }));
 
 const kpis: Kpis = {
   liveDataAvailable: true,

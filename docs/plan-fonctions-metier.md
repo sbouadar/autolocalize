@@ -1,7 +1,7 @@
 # Plan — fonctions métier (location et gestion de flotte)
 
 Rédigé le 2026-11-21, à la demande de l'utilisateur, pour être suivi par une autre session.
-Statut : **plan validé, M1 et M2 déployés le 2026-11-21.** Les cinq questions ouvertes ont été tranchées par
+Statut : **plan validé, M1 à M3 déployés (M3 le 2026-11-22).** Les cinq questions ouvertes ont été tranchées par
 l'utilisateur le 2026-11-21 (section 6). Les points encore marqués « à confirmer » sont des choix
 par défaut : poser la question (une seule à la fois) au début de la tranche concernée.
 
@@ -587,7 +587,7 @@ déployée, commit) et cocher ici :
 
 - [x] M1 Socle (déployé le 2026-11-21)
 - [x] M2 Comptes multiples (déployé le 2026-11-21)
-- [ ] M3 Indisponibilités et échéances
+- [x] M3 Indisponibilités et échéances (déployé le 2026-11-22)
 - [ ] M4 Entretien
 - [ ] M5 Locataires et réservations
 - [ ] M6 Départ, retour et alertes de location

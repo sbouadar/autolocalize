@@ -27,6 +27,8 @@ jest.mock("../EngineCard", () => ({ EngineCard: () => null }));
 // Compteur et informations : testés à part (OdometerCard.test.tsx, VehicleInfoCard.test.tsx).
 jest.mock("../OdometerCard", () => ({ OdometerCard: () => null }));
 jest.mock("../VehicleInfoCard", () => ({ VehicleInfoCard: () => null }));
+jest.mock("../DeadlinesCard", () => ({ DeadlinesCard: () => null }));
+jest.mock("../UnavailabilityCard", () => ({ UnavailabilityCard: () => null }));
 jest.mock("@/lib/auth", () => ({ useAuth: () => ({ me: null }) }));
 jest.mock("../../map/VehicleMap", () => ({
   VehicleMap: (props: typeof mockMapProps) => {

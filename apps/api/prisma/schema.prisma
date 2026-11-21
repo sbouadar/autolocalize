@@ -40,12 +40,14 @@ model Tenant {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  users            User[]
-  vehicles         Vehicle[]
-  commandLog       CommandLog[]
-  zones            Zone[]
-  events           Event[]
-  odometerReadings OdometerReading[]
+  users                   User[]
+  vehicles                Vehicle[]
+  commandLog              CommandLog[]
+  zones                   Zone[]
+  events                  Event[]
+  odometerReadings        OdometerReading[]
+  vehicleUnavailabilities VehicleUnavailability[]
+  vehicleDeadlines        VehicleDeadline[]
 
   @@map("tenants")
 }
@@ -181,11 +183,13 @@ model Vehicle {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  commandLog       CommandLog[]
-  events           Event[]
-  zones            ZoneVehicle[]
-  odometerReadings OdometerReading[]
+  tenant                  Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  commandLog              CommandLog[]
+  events                  Event[]
+  zones                   ZoneVehicle[]
+  odometerReadings        OdometerReading[]
+  vehicleUnavailabilities VehicleUnavailability[]
+  vehicleDeadlines        VehicleDeadline[]
 
   @@index([tenantId])
   @@map("vehicles")
@@ -227,6 +231,67 @@ enum OdometerSource {
   RENTAL_OUT
   RENTAL_IN
   MAINTENANCE
+}
+
+// ─── Indisponibilités et échéances administratives (M3) ──────────────────────
+
+// Période pendant laquelle un véhicule ne peut pas être loué ni utilisé (entretien, réparation…).
+model VehicleUnavailability {
+  id                  String               @id @default(cuid())
+  tenantId            String
+  vehicleId           String
+  startAt             DateTime
+  endAt               DateTime? // vide = jusqu'à nouvel ordre
+  reason              UnavailabilityReason
+  notes               String?              @db.VarChar(500)
+  maintenanceRecordId String? // si liée à un entretien (M4)
+  createdBy           String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, startAt])
+  @@index([tenantId, startAt])
+  @@map("vehicle_unavailabilities")
+}
+
+enum UnavailabilityReason {
+  MAINTENANCE
+  REPAIR
+  ACCIDENT
+  OTHER
+}
+
+// Échéance administrative d'un véhicule. La renouveler = modifier expiresOn (les alertes repartent).
+model VehicleDeadline {
+  id             String       @id @default(cuid())
+  tenantId       String
+  vehicleId      String
+  type           DeadlineType
+  label          String?      @db.VarChar(100) // obligatoire si type = OTHER
+  expiresOn      DateTime     @db.Date
+  reference      String?      @db.VarChar(100) // n° de police, de procès-verbal…
+  warnDaysBefore Int          @default(30)
+  notes          String?      @db.VarChar(500)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, expiresOn])
+  @@index([vehicleId])
+  @@map("vehicle_deadlines")
+}
+
+enum DeadlineType {
+  INSURANCE
+  TECHNICAL_INSPECTION
+  ROAD_TAX
+  REGISTRATION
+  OTHER
 }
 
 // ─── Zones (geofences) ────────────────────────────────────────────────────────

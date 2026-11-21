@@ -16,6 +16,8 @@ export const alertSchema = z.object({
   longitude: z.number().nullable(),
   speedKmh: z.number().nullable(),
   detail: z.string().nullable(),
+  /** Détail lisible d'une alerte produite par l'API (échéance, entretien, location). */
+  message: z.string().nullable().optional(),
 });
 export type Alert = z.infer<typeof alertSchema>;
 
@@ -49,8 +51,20 @@ const ALARM_LABELS: Record<string, string> = {
   accident: "Choc détecté",
 };
 
+// Alertes produites par l'API : libellé de secours si elle n'a pas fourni de message.
+const APP_ALERT_LABELS: Record<string, string> = {
+  DOCUMENT_EXPIRING: "Échéance à renouveler bientôt",
+  DOCUMENT_EXPIRED: "Échéance dépassée",
+  MAINTENANCE_DUE: "Entretien à prévoir",
+  MAINTENANCE_OVERDUE: "Entretien en retard",
+  RENTAL_OVERDUE: "Retour de location en retard",
+  RENTAL_UNAUTHORIZED_USE: "Véhicule utilisé hors location",
+  RENTAL_ZONE_EXIT: "Sortie de la zone autorisée pendant la location",
+};
+
 /** Libellé de l'alerte : « Entrée dans la zone Dépôt », « Excès de vitesse (112 km/h) »… */
-export function alertLabel(alert: Pick<Alert, "type" | "zoneName" | "speedKmh" | "detail">): string {
+export function alertLabel(alert: Pick<Alert, "type" | "zoneName" | "speedKmh" | "detail" | "message">): string {
+  if (alert.type in APP_ALERT_LABELS) return alert.message || APP_ALERT_LABELS[alert.type]!;
   switch (alert.type) {
     case "ZONE_ENTER":
       return alert.zoneName ? `Entrée dans la zone ${alert.zoneName}` : "Entrée dans une zone";

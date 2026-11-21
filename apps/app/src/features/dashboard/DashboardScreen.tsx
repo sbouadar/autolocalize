@@ -14,6 +14,7 @@ import { colors, fonts, radius, spacing } from "@/lib/theme";
 import type { Kpis } from "@/lib/types";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { vehicleLabel } from "@/lib/vehicles";
+import { FleetWatch } from "./FleetWatch";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -81,6 +82,7 @@ export function DashboardScreen() {
   return (
     <ScrollView contentContainerStyle={styles.page}>
       {greeting}
+      <FleetWatch />
       <SegmentedControl options={DASHBOARD_PERIODS} value={periodKey} onChange={setPeriodKey} />
 
       {isPending ? (

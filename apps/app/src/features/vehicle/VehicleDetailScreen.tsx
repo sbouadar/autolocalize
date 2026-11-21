@@ -18,10 +18,12 @@ import { pointsDuring, tripTotals } from "@/lib/trips";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { hasPosition, lastSeen, useRoute, useTrips, useVehicle, vehicleLabel, vehicleState } from "@/lib/vehicles";
 import { VehicleMap } from "../map/VehicleMap";
+import { DeadlinesCard } from "./DeadlinesCard";
 import { EngineCard } from "./EngineCard";
 import { OdometerCard } from "./OdometerCard";
 import { ReplayControls } from "./ReplayControls";
 import { TripList } from "./TripList";
+import { UnavailabilityCard } from "./UnavailabilityCard";
 import { VehicleInfoCard } from "./VehicleInfoCard";
 
 const noop = () => {};
@@ -68,7 +70,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
   const role = useAuth().me?.user.role;
   const canEdit = role === "TENANT_ADMIN";
   // Les agents saisissent les relevés de compteur (départs et retours de location à venir).
-  const canAddReading = canEdit || role === "AGENT";
+  const canAddReading = canEdit || role === "AGENT"; // vaut aussi pour les indisponibilités
   const [periodKey, setPeriodKey] = useState<PeriodKey>("today");
   const [selectedTrip, setSelectedTrip] = useState<number | null>(null);
   const tripsQuery = useTrips(id, periodKey);
@@ -216,6 +218,9 @@ export function VehicleDetailScreen({ id }: { id: string }) {
       ) : null}
       {routeQuery.isError ? <Banner message="Le tracé de la période n’a pas pu être chargé." /> : null}
 
+      <Text style={styles.section}>Gestion du véhicule</Text>
+      <UnavailabilityCard vehicleId={vehicle.id} canEdit={canAddReading} />
+      <DeadlinesCard vehicleId={vehicle.id} canEdit={canEdit} />
       <VehicleInfoCard vehicle={vehicle} canEdit={canEdit} />
     </ScrollView>
   );
