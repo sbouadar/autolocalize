@@ -1,9 +1,10 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useBranding } from "@/lib/branding-context";
-import { relativeTime } from "@/lib/format";
+import { formatSpeed, relativeTime } from "@/lib/format";
 import { colors, fonts, radius, spacing } from "@/lib/theme";
 import type { Vehicle } from "@/lib/types";
-import { lastSeen, movementLabel, vehicleLabel, vehicleStatus } from "@/lib/vehicles";
+import { lastSeen, vehicleLabel, vehicleState } from "@/lib/vehicles";
 
 interface VehicleListProps {
   vehicles: Vehicle[];
@@ -13,25 +14,32 @@ interface VehicleListProps {
 
 function VehicleRow({ vehicle, selected, onPress }: { vehicle: Vehicle; selected: boolean; onPress: () => void }) {
   const branding = useBranding();
-  const status = vehicleStatus(vehicle);
+  const state = vehicleState(vehicle);
   const label = vehicleLabel(vehicle);
   const plate = vehicle.plate?.trim();
-  const movement = movementLabel(vehicle.position);
+  const detail =
+    state.key === "moving" && vehicle.position
+      ? `${state.label} · ${formatSpeed(vehicle.position.speedKmh)}`
+      : vehicle.position
+        ? state.label
+        : `${state.label} · position inconnue`;
   const seen = relativeTime(lastSeen(vehicle));
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={`${label}, ${status.label}, ${movement}, mis à jour ${seen}`}
+      accessibilityLabel={`${label}, ${detail}, mis à jour ${seen}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
-        selected && { backgroundColor: branding.primarySoft, borderColor: branding.primaryText },
+        selected && { backgroundColor: branding.primarySoft },
         pressed && styles.pressed,
       ]}
     >
-      <View style={[styles.dot, { backgroundColor: status.color }]} />
+      <View style={[styles.badge, { backgroundColor: state.color }]}>
+        <MaterialCommunityIcons name="car" size={18} color={colors.onDark} />
+      </View>
       <View style={styles.main}>
         <Text style={styles.name} numberOfLines={1}>
           {label}
@@ -41,8 +49,8 @@ function VehicleRow({ vehicle, selected, onPress }: { vehicle: Vehicle; selected
             {plate}
           </Text>
         ) : null}
-        <Text style={styles.muted} numberOfLines={1}>
-          {status.label} · {movement}
+        <Text style={[styles.detail, { color: state.color }]} numberOfLines={1}>
+          {detail}
         </Text>
       </View>
       <Text style={styles.time} numberOfLines={1}>
@@ -66,19 +74,20 @@ export function VehicleList({ vehicles, selectedId, onSelect }: VehicleListProps
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.md, gap: spacing.sm },
+  content: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    padding: spacing.md,
+    minHeight: 68,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderCurve: "continuous",
   },
   pressed: { opacity: 0.8 },
-  dot: { width: 12, height: 12, borderRadius: 6 },
+  badge: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  detail: { fontFamily: fonts.bold, fontSize: 13 },
   main: { flex: 1, gap: 2 },
   name: { fontSize: 16, fontFamily: fonts.bold, color: colors.text },
   muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },

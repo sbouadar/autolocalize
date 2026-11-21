@@ -85,45 +85,70 @@ describe("MapScreen", () => {
     expect(screen.getByText("Aucun véhicule")).toBeTruthy();
   });
 
-  it("sur mobile, affiche la carte avec les seuls véhicules positionnés", async () => {
+  it("sur mobile, affiche la carte avec les seuls véhicules positionnés et l'état de la flotte", async () => {
     await render(<MapScreen />);
-    expect(screen.getByRole("tab", { name: "Liste (3)" })).toBeTruthy();
     expect(screen.getByText("marqueur Camion")).toBeTruthy();
     expect(screen.getByText("marqueur Utilitaire")).toBeTruthy();
     expect(screen.queryByText("marqueur Berline")).toBeNull();
+    // Sous la carte, sans sélection : la flotte par état.
+    expect(screen.getByText("3 véhicules")).toBeTruthy();
+    expect(screen.getByText("1 en route")).toBeTruthy();
+    expect(screen.getByText("2 hors ligne")).toBeTruthy();
   });
 
-  it("sélectionner un véhicule dans la liste revient sur la carte et l'affiche", async () => {
+  it("sélectionner un véhicule dans la liste revient sur la carte et affiche son détail dessous", async () => {
     await render(<MapScreen />);
-    await fireEvent.press(screen.getByRole("tab", { name: "Liste (3)" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Liste des véhicules" }));
 
     // Tri : en ligne, hors ligne, puis statut inconnu.
-    const rows = screen.getAllByRole("button").map((b) => String(b.props.accessibilityLabel).split(",")[0]);
+    const rows = screen
+      .getAllByRole("button")
+      .map((b) => String(b.props.accessibilityLabel).split(",")[0])
+      .filter((name) => ["Camion", "Utilitaire", "Berline"].includes(name));
     expect(rows).toEqual(["Camion", "Utilitaire", "Berline"]);
+    expect(screen.getByRole("button", { name: /^Camion, En route · 42 km\/h,/ })).toBeTruthy();
 
     await fireEvent.press(screen.getByRole("button", { name: /^Camion,/ }));
     expect(screen.getByText("marqueur Camion (sélectionné)")).toBeTruthy();
     expect(screen.getByLabelText("Véhicule sélectionné : Camion")).toBeTruthy();
     expect(screen.getByText("Bd Zerktouni, Casablanca")).toBeTruthy();
-    expect(screen.getByText("Contact mis")).toBeTruthy();
+    expect(screen.getByLabelText("Vitesse : 42 km/h")).toBeTruthy();
+    expect(screen.getByLabelText("Contact : Mis")).toBeTruthy();
 
     await fireEvent.press(screen.getByRole("button", { name: "Fermer" }));
     expect(screen.queryByLabelText("Véhicule sélectionné : Camion")).toBeNull();
+    expect(screen.getByText("3 véhicules")).toBeTruthy();
   });
 
   it("un clic sur un marqueur sélectionne le véhicule et donne accès à sa fiche", async () => {
     await render(<MapScreen />);
     await fireEvent.press(screen.getByText("marqueur Utilitaire"));
     expect(screen.getByLabelText("Véhicule sélectionné : Utilitaire")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Voir la fiche et l’historique" }));
+    // Hors ligne, la vitesse de la dernière position est périmée : elle n'est pas affichée.
+    expect(screen.getByText("Hors ligne")).toBeTruthy();
+    expect(screen.getByLabelText("Vitesse : —")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Voir la fiche" }));
     expect(mockPush).toHaveBeenCalledWith({ pathname: "/vehicles/[id]", params: { id: "1" } });
   });
 
-  it("filtre la liste et la carte par recherche, puis efface les filtres", async () => {
+  it("filtre la carte par la recherche flottante et par état", async () => {
     await render(<MapScreen />);
-    await fireEvent.press(screen.getByRole("tab", { name: "Liste (3)" }));
+    expect(screen.getByRole("radio", { name: "Tous : 3" })).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Rechercher sur la carte"), "6");
+    expect(screen.getByText("marqueur Camion")).toBeTruthy();
+    expect(screen.queryByText("marqueur Utilitaire")).toBeNull();
+    expect(screen.getByRole("radio", { name: "Tous : 1" })).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole("button", { name: "Effacer la recherche" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Hors ligne : 2" }));
+    expect(screen.getByText("marqueur Utilitaire")).toBeTruthy();
+    expect(screen.queryByText("marqueur Camion")).toBeNull();
+  });
+
+  it("filtre la liste par recherche, puis efface les filtres", async () => {
+    await render(<MapScreen />);
+    await fireEvent.press(screen.getByRole("button", { name: "Liste des véhicules" }));
     await fireEvent.changeText(screen.getByLabelText("Rechercher un véhicule"), "6");
-    expect(screen.getByRole("tab", { name: "Liste (1)" })).toBeTruthy();
     expect(screen.getByText("1 sur 3")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Camion,/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Utilitaire,/ })).toBeNull();
@@ -131,12 +156,11 @@ describe("MapScreen", () => {
     await fireEvent.changeText(screen.getByLabelText("Rechercher un véhicule"), "zzz");
     expect(screen.getByText("Aucun véhicule ne correspond à votre recherche.")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Effacer les filtres" }));
-    expect(screen.getByRole("tab", { name: "Liste (3)" })).toBeTruthy();
+    expect(screen.getByText("3 véhicules")).toBeTruthy();
 
-    // Le filtre s'applique aussi aux marqueurs.
+    // Le filtre de la liste s'applique aussi aux marqueurs.
     await fireEvent.press(screen.getByRole("radio", { name: "Hors ligne" }));
-    await fireEvent.press(screen.getByRole("tab", { name: "Liste (2)" }));
-    await fireEvent.press(screen.getByRole("tab", { name: "Carte" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Retour à la carte" }));
     expect(screen.getByText("marqueur Utilitaire")).toBeTruthy();
     expect(screen.queryByText("marqueur Camion")).toBeNull();
   });
@@ -161,7 +185,8 @@ describe("MapScreen", () => {
   it("sur grand écran, affiche la liste et la carte côte à côte", async () => {
     mockWidth = 1280;
     await render(<MapScreen />);
-    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByLabelText("Rechercher sur la carte")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Liste des véhicules" })).toBeNull();
     expect(screen.getByTestId("map")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Berline,/ })).toBeTruthy();
   });

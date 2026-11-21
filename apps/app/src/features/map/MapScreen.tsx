@@ -1,18 +1,20 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Button } from "@/components/Button";
-import { SegmentedControl } from "@/components/SegmentedControl";
 import { Banner, EmptyState, ErrorState, LoadingState } from "@/components/States";
 import { userMessage } from "@/lib/api";
 import { useBranding } from "@/lib/branding-context";
 import { positionedVehicles } from "@/lib/map";
-import { colors, fonts, radius, spacing } from "@/lib/theme";
+import { colors, fonts, radius, shadows, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { applyFilters, DEFAULT_FILTERS, isFiltered, type VehicleFilters } from "@/lib/vehicle-filters";
 import { useVehicles } from "@/lib/vehicles";
 import { useSelectedZoneIds } from "@/lib/zone-selection";
 import { useZones } from "@/lib/zones";
+import { FleetSummary } from "./FleetSummary";
+import { MapSearchOverlay } from "./MapSearchOverlay";
 import { VehicleFiltersBar } from "./VehicleFiltersBar";
 import { VehicleList } from "./VehicleList";
 import { VehicleMap } from "./VehicleMap";
@@ -23,7 +25,10 @@ export const WIDE_BREAKPOINT = 900;
 
 type Pane = "map" | "list";
 
-/** Carte en direct de la flotte et liste associée (côte à côte sur grand écran, en onglets sur mobile). */
+/**
+ * Carte en direct de la flotte. Sur mobile : carte avec recherche flottante et détail du véhicule
+ * sélectionné en dessous, liste dans une vue à part. Sur grand écran : liste à gauche.
+ */
 export function MapScreen() {
   const branding = useBranding();
   useDocumentTitle(`Carte — ${branding.name}`);
@@ -67,31 +72,59 @@ export function MapScreen() {
     setSelectedId(id);
     if (!wide) setPane("map");
   };
+  const showList = wide ? undefined : () => setPane("list");
+  const zonesLabel = zones?.length ? `Zones (${zones.length})` : "Zones";
 
   const mapPane = (
-    <View style={styles.mapPane}>
-      <VehicleMap vehicles={positioned} selectedId={selectedId} onSelect={setSelectedId} zones={shownZones} />
-      <View style={styles.zonesLink}>
-        <Button label={zones?.length ? `Zones (${zones.length})` : "Zones"} variant="secondary" onPress={() => router.push("/zones")} />
+    <View style={styles.flex}>
+      <View style={styles.mapArea}>
+        <VehicleMap vehicles={positioned} selectedId={selectedId} onSelect={setSelectedId} zones={shownZones} />
+        {wide ? null : <MapSearchOverlay vehicles={vehicles} filters={filters} onChange={setFilters} />}
+        {positioned.length === 0 ? (
+          <View style={[styles.mapNotice, !wide && styles.mapNoticeBelowSearch]} pointerEvents="none">
+            <Text style={styles.mapNoticeText}>
+              {isFiltered(filters) ? "Aucun véhicule ne correspond aux filtres." : "Aucune position disponible pour le moment."}
+            </Text>
+          </View>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={zonesLabel}
+          onPress={() => router.push("/zones")}
+          style={({ pressed }) => [styles.zones, wide ? styles.zonesTop : styles.zonesBottom, pressed && { opacity: 0.8 }]}
+        >
+          <MaterialCommunityIcons name="map-marker-radius-outline" size={20} color={colors.text} />
+          <Text style={styles.zonesText}>{zonesLabel}</Text>
+        </Pressable>
       </View>
-      {positioned.length === 0 ? (
-        <View style={styles.mapNotice} pointerEvents="none">
-          <Text style={styles.mapNoticeText}>
-            {isFiltered(filters) ? "Aucun véhicule ne correspond aux filtres." : "Aucune position disponible pour le moment."}
-          </Text>
-        </View>
-      ) : null}
-      {selected ? (
-        <VehicleSummary
-          vehicle={selected}
-          onClose={() => setSelectedId(null)}
-          onOpen={() => router.push({ pathname: "/vehicles/[id]", params: { id: selected.id } })}
-        />
-      ) : null}
+      <View style={styles.panel}>
+        {selected ? (
+          <VehicleSummary
+            vehicle={selected}
+            onClose={() => setSelectedId(null)}
+            onOpen={() => router.push({ pathname: "/vehicles/[id]", params: { id: selected.id } })}
+            onShowList={showList}
+          />
+        ) : (
+          <FleetSummary vehicles={vehicles} onShowList={showList} />
+        )}
+      </View>
     </View>
   );
+
   const listPane = (
     <View style={styles.flex}>
+      {wide ? null : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retour à la carte"
+          onPress={() => setPane("map")}
+          style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
+          <Text style={styles.backText}>Carte</Text>
+        </Pressable>
+      )}
       <VehicleFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={vehicles.length} />
       {shown.length === 0 ? (
         <View style={styles.noMatch}>
@@ -118,21 +151,10 @@ export function MapScreen() {
           <View style={styles.sidebar}>{listPane}</View>
           {mapPane}
         </View>
+      ) : pane === "map" ? (
+        mapPane
       ) : (
-        <>
-          <View style={styles.toggle}>
-            <SegmentedControl
-              kind="tab"
-              value={pane}
-              onChange={setPane}
-              options={[
-                { key: "map", label: "Carte" },
-                { key: "list", label: `Liste (${shown.length})` },
-              ]}
-            />
-          </View>
-          {pane === "map" ? mapPane : listPane}
-        </>
+        listPane
       )}
     </View>
   );
@@ -144,8 +166,14 @@ const styles = StyleSheet.create({
   noMatch: { alignItems: "center", gap: spacing.md, padding: spacing.xl },
   banners: { padding: spacing.md, paddingBottom: 0, gap: spacing.sm },
   split: { flex: 1, flexDirection: "row" },
-  sidebar: { width: 360, borderRightWidth: 1, borderRightColor: colors.border, backgroundColor: colors.background },
-  mapPane: { flex: 1, overflow: "hidden" },
+  sidebar: {
+    width: 380,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  mapArea: { flex: 1, overflow: "hidden" },
+  // Au-dessus des volets de Leaflet (z-index jusqu'à 1000) sur le web.
   mapNotice: {
     position: "absolute",
     top: spacing.md,
@@ -154,9 +182,45 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
+    boxShadow: shadows.raised,
     zIndex: 1100,
   },
-  zonesLink: { position: "absolute", top: spacing.md, right: spacing.md, zIndex: 1100 },
-  mapNoticeText: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted },
-  toggle: { margin: spacing.md },
+  mapNoticeBelowSearch: { top: 120 },
+  mapNoticeText: { fontFamily: fonts.medium, fontSize: 14, color: colors.muted, textAlign: "center" },
+  zones: {
+    position: "absolute",
+    right: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    boxShadow: shadows.raised,
+    zIndex: 1100,
+  },
+  zonesTop: { top: spacing.md },
+  // Au-dessus de l'attribution des tuiles, qui doit rester visible.
+  zonesBottom: { bottom: spacing.xl },
+  zonesText: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
+  panel: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    boxShadow: "0 -4px 16px rgba(20, 20, 20, 0.08)",
+    zIndex: 1100,
+  },
+  back: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    alignSelf: "flex-start",
+  },
+  backText: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
 });

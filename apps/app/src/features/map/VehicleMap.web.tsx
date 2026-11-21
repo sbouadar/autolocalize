@@ -1,16 +1,35 @@
+import { divIcon, type DivIcon } from "leaflet";
 import { useEffect, useMemo, useRef } from "react";
-import { Circle, CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvent } from "react-leaflet";
+import { Circle, CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvent } from "react-leaflet";
 import { useBranding } from "@/lib/branding-context";
 import { colors } from "@/lib/theme";
 import { MAP_ATTRIBUTION, MAP_TILE_URL } from "@/lib/config";
 import { DEFAULT_REGION, DEFAULT_ZOOM, FOCUS_ZOOM, OVERVIEW_RADIUS_M, regionAround, type LatLng, type PositionedVehicle } from "@/lib/map";
-import { vehicleLabel, vehicleStatus } from "@/lib/vehicles";
+import { vehicleLabel, vehicleState } from "@/lib/vehicles";
+import { markerHtml, type MarkerLook } from "./marker-html";
 import type { VehicleMapProps } from "./vehicle-map-props";
 
 // Le CSS de Leaflet est importé dans le layout racine (src/app/_layout.tsx), comme l'exige Expo Router.
 
 function latLng(v: PositionedVehicle): [number, number] {
   return [v.position.latitude, v.position.longitude];
+}
+
+// Les positions se rafraîchissent toutes les 10 s : on réutilise l'icône tant que son aspect ne
+// change pas, pour que Leaflet ne recrée pas l'élément (clignotement, survol perdu).
+const iconCache = new Map<string, DivIcon>();
+const ICON_CACHE_MAX = 500;
+
+function vehicleIcon(look: MarkerLook): DivIcon {
+  const key = JSON.stringify(look);
+  let icon = iconCache.get(key);
+  if (!icon) {
+    if (iconCache.size >= ICON_CACHE_MAX) iconCache.clear();
+    // Taille nulle : le HTML se positionne lui-même autour du point (voir marker-html.ts).
+    icon = divIcon({ html: markerHtml(look), className: "", iconSize: [0, 0], iconAnchor: [0, 0] });
+    iconCache.set(key, icon);
+  }
+  return icon;
 }
 
 /** Coins (sud-ouest, nord-est) de la vue qui contient le cercle de ce rayon autour du point. */
@@ -123,25 +142,29 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
       ) : null}
       {vehicles.map((v) => {
         const isSelected = v.id === selectedId;
+        const state = vehicleState(v);
+        const label = vehicleLabel(v);
+        const icon = vehicleIcon({
+          label,
+          color: state.color,
+          // Cap arrondi à 10° : inutile de recréer l'icône pour un degré d'écart.
+          heading: state.key === "moving" ? Math.round(v.position.course / 10) * 10 : null,
+          selected: isSelected,
+          selectedBg: branding.primaryColor,
+          selectedFg: branding.onPrimary,
+          text: colors.text,
+          surface: colors.surface,
+        });
         return (
-          <CircleMarker
+          <Marker
             key={v.id}
-            center={latLng(v)}
-            radius={isSelected ? 11 : 8}
-            bubblingMouseEvents={false}
-            pathOptions={{
-              color: isSelected ? branding.primaryColor : colors.onDark,
-              weight: isSelected ? 4 : 2,
-              fillColor: vehicleStatus(v).color,
-              fillOpacity: 1,
-            }}
+            position={latLng(v)}
+            icon={icon}
+            title={`${label}, ${state.label}`}
+            alt={label}
+            zIndexOffset={isSelected ? 1000 : 0}
             eventHandlers={{ click: () => onSelect(v.id) }}
-          >
-            {/* « permanent » n'est lu qu'à la création : la clé force une nouvelle info-bulle. */}
-            <Tooltip key={String(isSelected)} direction="top" offset={[0, -10]} permanent={isSelected}>
-              {vehicleLabel(v)}
-            </Tooltip>
-          </CircleMarker>
+          />
         );
       })}
     </MapContainer>

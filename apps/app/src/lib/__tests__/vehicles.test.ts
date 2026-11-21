@@ -1,6 +1,6 @@
 import { colors } from "../theme";
 import type { VehiclePosition } from "../types";
-import { lastSeen, movementLabel, vehicleLabel, vehicleStatus } from "../vehicles";
+import { lastSeen, movementLabel, vehicleLabel, vehicleState, vehicleStatus } from "../vehicles";
 
 const position: VehiclePosition = {
   latitude: 33.57,
@@ -57,5 +57,21 @@ describe("vehicleStatus", () => {
     expect(vehicleStatus({ status: "online", disabled: false }).label).toBe("En ligne");
     expect(vehicleStatus({ status: "offline", disabled: false }).label).toBe("Hors ligne");
     expect(vehicleStatus({ status: "unknown", disabled: false }).label).toBe("Statut inconnu");
+  });
+});
+
+describe("vehicleState", () => {
+  const pos = { latitude: 0, longitude: 0, speedKmh: 0, course: 0, fixTime: "2026-11-21T10:00:00Z", address: null, ignition: null, motion: null };
+
+  it("distingue en route et à l'arrêt pour un traceur en ligne", () => {
+    expect(vehicleState({ status: "online", disabled: false, position: { ...pos, speedKmh: 50 } }).key).toBe("moving");
+    expect(vehicleState({ status: "online", disabled: false, position: { ...pos, motion: false, speedKmh: 50 } }).key).toBe("stopped");
+    expect(vehicleState({ status: "online", disabled: false, position: null }).label).toBe("À l’arrêt");
+  });
+
+  it("classe hors ligne un traceur hors ligne ou au statut inconnu, et donne la priorité à l'état désactivé", () => {
+    expect(vehicleState({ status: "offline", disabled: false, position: { ...pos, speedKmh: 50 } }).label).toBe("Hors ligne");
+    expect(vehicleState({ status: "unknown", disabled: false, position: null })).toMatchObject({ key: "offline", label: "Statut inconnu" });
+    expect(vehicleState({ status: "online", disabled: true, position: { ...pos, speedKmh: 50 } }).key).toBe("disabled");
   });
 });

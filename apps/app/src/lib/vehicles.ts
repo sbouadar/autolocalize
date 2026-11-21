@@ -73,6 +73,33 @@ export function vehicleStatus(v: Pick<Vehicle, "status" | "disabled">): { label:
   }
 }
 
+export type VehicleStateKey = "moving" | "stopped" | "offline" | "disabled";
+
+export interface VehicleState {
+  key: VehicleStateKey;
+  /** « En route », « À l’arrêt », « Hors ligne »… */
+  label: string;
+  /** Couleur de l'état (marqueur, pastille), fixe quelle que soit la marque du client. */
+  color: string;
+  /** Fond atténué de la pastille d'état, sur lequel `color` reste lisible. */
+  soft: string;
+}
+
+/**
+ * État affiché sur la carte et dans la liste : en route ou à l'arrêt pour un traceur en ligne,
+ * sinon hors ligne (ou statut inconnu) ou désactivé.
+ */
+export function vehicleState(v: Pick<Vehicle, "status" | "disabled" | "position">): VehicleState {
+  if (v.disabled) return { key: "disabled", label: "Désactivé", color: colors.danger, soft: colors.dangerSoft };
+  if (v.status !== "online") {
+    const label = v.status === "offline" ? "Hors ligne" : "Statut inconnu";
+    return { key: "offline", label, color: colors.offline, soft: colors.fill };
+  }
+  return isMoving(v.position)
+    ? { key: "moving", label: "En route", color: colors.online, soft: colors.onlineSoft }
+    : { key: "stopped", label: "À l’arrêt", color: colors.warning, soft: colors.warningSoft };
+}
+
 /** Mouvement d'après la dernière position : attribut « motion » du traceur, sinon la vitesse. */
 export function isMoving(position: VehiclePosition | null): boolean {
   if (!position) return false;

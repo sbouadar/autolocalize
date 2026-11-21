@@ -1,13 +1,70 @@
-import { useEffect, useRef } from "react";
-import { StyleSheet } from "react-native";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
 import { withAlpha } from "@/lib/branding";
 import { useBranding } from "@/lib/branding-context";
-import { focusRegion, OVERVIEW_RADIUS_M, regionAround, regionFor } from "@/lib/map";
-import { movementLabel, vehicleLabel, vehicleStatus } from "@/lib/vehicles";
+import type { Branding } from "@/lib/branding";
+import { focusRegion, OVERVIEW_RADIUS_M, regionAround, regionFor, type PositionedVehicle } from "@/lib/map";
+import { colors, fonts, radius, shadows } from "@/lib/theme";
+import { vehicleLabel, vehicleState } from "@/lib/vehicles";
 import type { VehicleMapProps } from "./vehicle-map-props";
 
 const EDGE_PADDING = { top: 60, right: 40, bottom: 60, left: 40 };
+
+/**
+ * Marqueur de véhicule : pastille avec l'icône du véhicule sur la couleur de son état, une flèche
+ * de cap quand il roule, et son nom (même aspect que marker-html.ts sur le web).
+ */
+function VehicleMarker({
+  vehicle,
+  selected,
+  branding,
+  onPress,
+}: {
+  vehicle: PositionedVehicle;
+  selected: boolean;
+  branding: Branding;
+  onPress: () => void;
+}) {
+  const state = vehicleState(vehicle);
+  const label = vehicleLabel(vehicle);
+  const heading = state.key === "moving" ? Math.round(vehicle.position.course / 10) * 10 : null;
+  // Une vue personnalisée n'est redessinée que si tracksViewChanges est vrai, ce qui coûte cher :
+  // on le laisse actif le temps du premier rendu (la clé du marqueur change avec son aspect).
+  const [tracking, setTracking] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setTracking(false), 600);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <Marker
+      identifier={vehicle.id}
+      coordinate={{ latitude: vehicle.position.latitude, longitude: vehicle.position.longitude }}
+      anchor={{ x: 0, y: 0.5 }}
+      zIndex={selected ? 1000 : 1}
+      tracksViewChanges={tracking}
+      stopPropagation
+      onPress={onPress}
+      accessibilityLabel={`${label}, ${state.label}`}
+    >
+      <View style={[styles.pill, selected && { backgroundColor: branding.primaryColor, height: 40 }]}>
+        <View style={[styles.badge, { backgroundColor: state.color }]}>
+          {heading != null ? (
+            <View style={[styles.headingRing, { transform: [{ rotate: `${heading}deg` }] }]}>
+              <View style={[styles.headingArrow, { borderBottomColor: state.color }]} />
+            </View>
+          ) : null}
+          <MaterialCommunityIcons name="car" size={16} color={colors.onDark} />
+        </View>
+        <Text style={[styles.label, selected && { color: branding.onPrimary }]} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+    </Marker>
+  );
+}
 
 /** Carte native (Apple Maps sur iOS, Google Maps sur Android). */
 export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zones, onMapPress, focus, overview }: VehicleMapProps) {
@@ -69,18 +126,47 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
       ))}
       {hasRoute ? <Polyline coordinates={route} strokeColor={branding.primaryColor} strokeWidth={4} /> : null}
       {cursor ? <Marker coordinate={cursor} pinColor={branding.secondaryColor} title="Replay" tracksViewChanges={false} /> : null}
-      {vehicles.map((v) => (
-        <Marker
-          key={v.id}
-          identifier={v.id}
-          coordinate={{ latitude: v.position.latitude, longitude: v.position.longitude }}
-          pinColor={vehicleStatus(v).color}
-          title={vehicleLabel(v)}
-          description={movementLabel(v.position)}
-          stopPropagation
-          onPress={() => onSelect(v.id)}
-        />
-      ))}
+      {vehicles.map((v) => {
+        const selected = v.id === selectedId;
+        const state = vehicleState(v);
+        const heading = state.key === "moving" ? Math.round(v.position.course / 10) : "";
+        return (
+          <VehicleMarker
+            // Nouvelle clé à chaque changement d'aspect : le marqueur se redessine (voir tracksViewChanges).
+            key={`${v.id}|${state.key}|${heading}|${selected}|${vehicleLabel(v)}|${branding.primaryColor}`}
+            vehicle={v}
+            selected={selected}
+            branding={branding}
+            onPress={() => onSelect(v.id)}
+          />
+        );
+      })}
     </MapView>
   );
 }
+
+const styles = StyleSheet.create({
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 36,
+    paddingLeft: 4,
+    paddingRight: 12,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    boxShadow: shadows.raised,
+  },
+  badge: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  headingRing: { position: "absolute", top: -7, left: -7, right: -7, bottom: -7, alignItems: "center" },
+  headingArrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 7,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+  },
+  label: { fontFamily: fonts.bold, fontSize: 12, color: colors.text, maxWidth: 140 },
+});
