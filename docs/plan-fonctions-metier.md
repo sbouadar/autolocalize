@@ -398,12 +398,12 @@ model RentalContract {
   par un avec reprise en cas d'échec réseau (parking, sous-sol).
 - **Contrat PDF** : généré par l'API au **départ** (`POST /rentals/:id/pickup`), puis figé : fichier
   stocké avec son empreinte SHA-256, jamais régénéré (un contrat signé ne doit pas changer). Contenu :
-  branding du client (logo, nom, adresse, téléphone), locataire (n° de pièce masqué sauf les
-  4 derniers caractères — à confirmer si le contrat doit porter le numéro complet), véhicule (marque,
+  branding du client (logo, nom, adresse, téléphone), locataire (**n° de pièce d'identité complet**,
+  décidé le 2026-11-21 ; le PDF est donc une donnée sensible : stockage privé, jamais public), véhicule (marque,
   modèle, plaque), dates prévues, compteur et carburant au départ, prix, caution, devise, conditions
   générales du client (nouveau champ `tenants.rentalTerms`, texte saisi par l'admin), zones de
   signature. Bibliothèque : `pdfkit` ou `pdf-lib`, à choisir après vérification des versions.
-  Police embarquée gérant le français (et l'arabe si besoin : à confirmer).
+  Police embarquée gérant le français. **Contrat en français uniquement** (décidé le 2026-11-21).
 - **Signature** : signature sur papier du contrat imprimé dans cette version ; signature dessinée à
   l'écran plus tard (à confirmer).
 - **Retour** : `GET /rentals/:id/return-report.pdf` généré à la demande (compteur, carburant,
@@ -572,8 +572,13 @@ Préfixe `/api`. Rôles : A = `TENANT_ADMIN`, G = `AGENT`, V = `VIEWER`, S = `SU
 4. **Photos d'état des lieux et contrat PDF** : **dans cette version** (M6).
 5. **Suspension automatique après impayé** : plus tard ; suspension à la main en attendant (M11).
 
-Restent « à confirmer » au fil des tranches : pièces jointes des échéances (M3), numéro de pièce
-complet ou masqué sur le contrat, arabe dans le PDF, signature dessinée à l'écran (M6).
+6. **Contrat PDF** (2026-11-21) : numéro de pièce d'identité **complet** sur le contrat ; contrat
+   **en français uniquement**.
+7. **Ordre** (recommandation du 2026-11-21) : tranche 3 de la refonte (fiche véhicule), M3, puis M5
+   et M6 (location) avant M4 (entretien), M5 ne dépendant que de M2 et M3.
+
+Restent « à confirmer » au fil des tranches : pièces jointes des échéances (M3), signature dessinée
+à l'écran (M6).
 
 ## 7. Suivi
 
