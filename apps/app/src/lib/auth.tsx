@@ -68,7 +68,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (result.twoFactorRedirect) {
         throw new ApiError(0, "La double authentification n'est pas encore disponible dans l'application.");
       }
-      const me = await fetchMe();
+      let me: Me | null;
+      try {
+        me = await api("/me", { schema: meSchema });
+      } catch (err) {
+        if (err instanceof ApiError && err.code === "ACCOUNT_DISABLED") {
+          throw new ApiError(0, "Ce compte a été désactivé par l'administrateur de votre société.");
+        }
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) me = null;
+        else throw err;
+      }
       if (!me) {
         throw new ApiError(0, "Accès refusé : compte non rattaché à un client ou abonnement suspendu.");
       }

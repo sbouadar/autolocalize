@@ -62,23 +62,26 @@ enum Currency {
 enum Role {
   SUPER_ADMIN // exploitant de la plateforme, sans tenant
   TENANT_ADMIN // admin du client : branding, utilisateurs, commandes moteur
+  AGENT // employé du client : réservations, départs et retours, relevés, dépenses ; ni comptes, ni branding, ni coupure moteur
   VIEWER // lecture seule
 }
 
 model User {
-  id                 String   @id
-  name               String   @db.VarChar(191)
-  email              String   @unique @db.VarChar(191)
-  emailVerified      Boolean  @default(false)
-  image              String?  @db.VarChar(500)
-  role               Role     @default(VIEWER)
+  id                 String    @id
+  name               String    @db.VarChar(191)
+  email              String    @unique @db.VarChar(191)
+  emailVerified      Boolean   @default(false)
+  image              String?   @db.VarChar(500)
+  role               Role      @default(VIEWER)
   tenantId           String?
   traccarUserId      Int? // utilisateur Traccar lié, si besoin
-  twoFactorEnabled   Boolean? @default(false)
-  // Mot de passe provisoire (créé ou réinitialisé par le super-admin) : à changer avant tout accès.
-  mustChangePassword Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  twoFactorEnabled   Boolean?  @default(false)
+  // Mot de passe provisoire (créé ou réinitialisé par un admin) : à changer avant tout accès.
+  mustChangePassword Boolean   @default(false)
+  // Compte désactivé par l'admin du client : sessions fermées, toute requête refusée.
+  disabledAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   tenant     Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   sessions   Session[]

@@ -24,8 +24,11 @@ function estimateNote(data: Odometer): string | null {
   }
 }
 
-/** Bloc « Compteur » : compteur estimé (dernier relevé + distance GPS), relevés, saisie par l'admin du client. */
-export function OdometerCard({ vehicleId, canEdit }: { vehicleId: string; canEdit: boolean }) {
+/**
+ * Bloc « Compteur » : compteur estimé (dernier relevé + distance GPS) et relevés. Saisie par l'admin
+ * et les agents du client, suppression d'un relevé erroné par l'admin seulement.
+ */
+export function OdometerCard({ vehicleId, canAdd, canDelete }: { vehicleId: string; canAdd: boolean; canDelete: boolean }) {
   const { data, isPending, isError, refetch } = useOdometer(vehicleId);
   const actions = useOdometerActions(vehicleId);
   const [km, setKm] = useState("");
@@ -90,14 +93,14 @@ export function OdometerCard({ vehicleId, canEdit }: { vehicleId: string; canEdi
         </View>
       ) : (
         <Text style={styles.muted}>
-          {canEdit
+          {canAdd
             ? "Aucun relevé : saisissez le kilométrage affiché au compteur. L’application l’actualisera ensuite avec la distance GPS."
             : "Aucun relevé de compteur pour ce véhicule."}
         </Text>
       )}
       {note ? <Text style={styles.note}>{note}</Text> : null}
 
-      {canEdit ? (
+      {canAdd ? (
         <View style={styles.addRow}>
           <View style={styles.flex}>
             <TextField
@@ -128,7 +131,7 @@ export function OdometerCard({ vehicleId, canEdit }: { vehicleId: string; canEdi
                   {formatDateTime(r.readAt)} · {ODOMETER_SOURCE_LABELS[r.source] ?? r.source}
                 </Text>
               </View>
-              {canEdit ? (
+              {canDelete ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Supprimer le relevé de ${formatKm(r.km)}`}

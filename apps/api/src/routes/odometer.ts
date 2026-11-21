@@ -48,11 +48,11 @@ const odometerRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
-  // Relevé manuel (admin du client). Un compteur ne recule pas : un relevé incohérent avec ceux
+  // Relevé manuel (admin ou agent du client). Un compteur ne recule pas : un relevé incohérent avec ceux
   // d'avant ou d'après est refusé (409) ; une erreur de saisie se corrige en supprimant le relevé.
   app.post(
     "/vehicles/:id/odometer",
-    { preHandler: [app.requireAuth, app.requireRole("TENANT_ADMIN")] },
+    { preHandler: [app.requireAuth, app.requireRole("TENANT_ADMIN", "AGENT")] },
     async (request, reply) => {
       const vehicle = await findOwnedVehicle(request);
       if (!vehicle) return reply.notFound();

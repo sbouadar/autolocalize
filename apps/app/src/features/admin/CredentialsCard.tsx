@@ -8,12 +8,21 @@ const PUBLIC_ORIGIN = "https://autolocalize.net";
  * Identifiants provisoires à transmettre au client. Affichés une seule fois : ils ne sont ni
  * stockés ni récupérables ensuite (une nouvelle réinitialisation en génère d'autres).
  */
-export function CredentialsCard({ credentials, slug }: { credentials: Credentials; slug: string }) {
+export function CredentialsCard({
+  credentials,
+  slug,
+  recipient = "au client",
+}: {
+  credentials: Credentials;
+  slug: string;
+  /** Destinataire des identifiants, dans les phrases de la carte (« au client », « à votre collaborateur »). */
+  recipient?: string;
+}) {
   return (
     <View style={styles.card} accessibilityRole="alert">
-      <Text style={styles.title}>Identifiants à transmettre au client</Text>
+      <Text style={styles.title}>Identifiants à transmettre {recipient}</Text>
       <Text style={styles.warning}>
-        Notez-les maintenant : le mot de passe provisoire ne sera plus affiché. Le client devra le changer à sa première
+        Notez-les maintenant : le mot de passe provisoire ne sera plus affiché. Il devra être changé à la première
         connexion.
       </Text>
       <Text style={styles.label}>Adresse de connexion</Text>

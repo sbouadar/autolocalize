@@ -61,7 +61,10 @@ export function VehicleDetailScreen({ id }: { id: string }) {
   const branding = useBranding();
   const vehicleQuery = useVehicle(id);
   // Fiche et relevés modifiables par l'admin du client (et le super-admin connecté en tant que lui).
-  const canEdit = useAuth().me?.user.role === "TENANT_ADMIN";
+  const role = useAuth().me?.user.role;
+  const canEdit = role === "TENANT_ADMIN";
+  // Les agents saisissent les relevés de compteur (départs et retours de location à venir).
+  const canAddReading = canEdit || role === "AGENT";
   const [periodKey, setPeriodKey] = useState<PeriodKey>("today");
   const [selectedTrip, setSelectedTrip] = useState<number | null>(null);
   const tripsQuery = useTrips(id, periodKey);
@@ -134,7 +137,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
       </View>
 
       <EngineCard vehicle={vehicle} />
-      <OdometerCard vehicleId={vehicle.id} canEdit={canEdit} />
+      <OdometerCard vehicleId={vehicle.id} canAdd={canAddReading} canDelete={canEdit} />
 
       {vehicleQuery.data?.liveDataAvailable === false ? (
         <Banner message="Suivi en direct momentanément indisponible : position et statut ne peuvent pas être affichés." />

@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { TenantLogo } from "@/components/TenantLogo";
@@ -13,6 +14,7 @@ import { CompanyEditor } from "./CompanyEditor";
 export const ROLE_LABELS: Record<Role, string> = {
   SUPER_ADMIN: "Administrateur de la plateforme",
   TENANT_ADMIN: "Administrateur",
+  AGENT: "Agent",
   VIEWER: "Consultation",
 };
 
@@ -32,6 +34,7 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 export function ProfileScreen() {
   const { me, signOut } = useAuth();
   const branding = useBranding();
+  const router = useRouter();
   useDocumentTitle(`Profil — ${branding.name}`);
   if (!me) return null;
 
@@ -53,6 +56,13 @@ export function ProfileScreen() {
           <Row label="Téléphone" value={branding.phone} />
           <Row label="E-mail" value={branding.email} />
           {me.user.role === "TENANT_ADMIN" ? <CompanyEditor tenant={me.tenant} /> : null}
+        </Card>
+      ) : null}
+
+      {me.user.role === "TENANT_ADMIN" && me.tenant ? (
+        <Card title="Utilisateurs">
+          <Text style={styles.value}>Créez les comptes de vos collaborateurs et choisissez leurs droits.</Text>
+          <Button label="Gérer les utilisateurs" variant="secondary" onPress={() => router.push("/users")} />
         </Card>
       ) : null}
 

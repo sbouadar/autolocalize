@@ -15,6 +15,7 @@ import meRoutes from "./routes/me.js";
 import odometerRoutes from "./routes/odometer.js";
 import publicRoutes from "./routes/public.js";
 import tenantRoutes from "./routes/tenant.js";
+import tenantUserRoutes from "./routes/tenant-users.js";
 import vehicleRoutes from "./routes/vehicles.js";
 import zoneRoutes from "./routes/zones.js";
 
@@ -65,6 +66,7 @@ export async function buildApp() {
       await api.register(commandRoutes);
       await api.register(dashboardRoutes);
       await api.register(tenantRoutes);
+      await api.register(tenantUserRoutes);
       await api.register(zoneRoutes);
       await api.register(eventRoutes);
       await api.register(adminRoutes);

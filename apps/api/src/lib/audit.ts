@@ -17,6 +17,11 @@ export type AuditAction =
   | "zone.create"
   | "zone.update"
   | "zone.delete"
+  | "tenant.user.create"
+  | "tenant.user.update"
+  | "tenant.user.password.reset"
+  | "tenant.user.disable"
+  | "tenant.user.enable"
   | "impersonation.start"
   | "impersonation.stop";
 

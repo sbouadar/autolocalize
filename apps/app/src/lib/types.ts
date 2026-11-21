@@ -5,7 +5,8 @@ import { z } from "zod";
 
 const nullableString = z.string().nullable();
 
-export const roleSchema = z.enum(["SUPER_ADMIN", "TENANT_ADMIN", "VIEWER"]);
+// AGENT : employé du client (relevés, et plus tard réservations, départs et retours, dépenses).
+export const roleSchema = z.enum(["SUPER_ADMIN", "TENANT_ADMIN", "AGENT", "VIEWER"]);
 export type Role = z.infer<typeof roleSchema>;
 
 /** Branding public (avant connexion) : GET /public/tenants/:slug/branding */

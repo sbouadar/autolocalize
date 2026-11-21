@@ -53,10 +53,18 @@ export default fp(async (app) => {
         role: true,
         tenantId: true,
         mustChangePassword: true,
+        disabledAt: true,
         tenant: { select: { status: true } },
       },
     });
     if (!user) return reply.unauthorized();
+
+    // Compte désactivé par l'admin du client : la session (ouverte avant la désactivation, ou par
+    // une nouvelle connexion) est fermée et rien n'est accessible, pas même le profil.
+    if (user.disabledAt) {
+      await prisma.session.deleteMany({ where: { id: session.session.id } });
+      return reply.code(403).send({ statusCode: 403, error: "Ce compte a été désactivé", code: "ACCOUNT_DISABLED" });
+    }
 
     if (user.role !== "SUPER_ADMIN") {
       if (!user.tenantId || !user.tenant) return reply.forbidden("Compte non rattaché à un client");
