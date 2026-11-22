@@ -9,7 +9,8 @@ let mockTrips: Query;
 let mockRoute: Query;
 const mockTripsCalls: unknown[] = [];
 const mockBack = jest.fn();
-let mockMapProps: { route?: unknown[]; vehicles?: unknown[]; cursor?: { latitude: number } | null } = {};
+let mockMapProps: { route?: unknown[]; vehicles?: unknown[]; cursor?: { latitude: number } | null; zones?: { id: string }[] } = {};
+let mockZones: { id: string; name: string; vehicleIds: string[] }[] = [];
 
 jest.mock("@/lib/vehicles", () => ({
   ...jest.requireActual("@/lib/vehicles"),
@@ -31,6 +32,7 @@ jest.mock("../DeadlinesCard", () => ({ DeadlinesCard: () => null }));
 jest.mock("../MaintenanceCard", () => ({ MaintenanceCard: () => null }));
 jest.mock("../UnavailabilityCard", () => ({ UnavailabilityCard: () => null }));
 jest.mock("@/lib/auth", () => ({ useAuth: () => ({ me: null }) }));
+jest.mock("@/lib/zones", () => ({ useZones: () => ({ data: { canEdit: false, zones: mockZones } }) }));
 jest.mock("../../map/VehicleMap", () => ({
   VehicleMap: (props: typeof mockMapProps) => {
     mockMapProps = props;
@@ -193,4 +195,33 @@ describe("VehicleDetailScreen", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Réessayer" }));
     expect(mockTrips.refetch).toHaveBeenCalled();
   });
+
+describe("zones de la fiche véhicule", () => {
+  afterEach(() => {
+    mockZones = [];
+  });
+
+  it("dessine les zones qui surveillent le véhicule, et permet de les masquer", async () => {
+    mockZones = [
+      { id: "z1", name: "Casablanca", vehicleIds: ["v1"] },
+      { id: "z2", name: "Rabat", vehicleIds: ["v2"] },
+      { id: "z3", name: "Port", vehicleIds: ["v2", "v1"] },
+    ];
+    await render(<VehicleDetailScreen id="v1" />);
+    expect(mockMapProps.zones?.map((z) => z.id)).toEqual(["z1", "z3"]);
+    expect(screen.getByText("Zones surveillées : Casablanca, Port")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Masquer les zones sur la carte" }));
+    expect(mockMapProps.zones).toBeUndefined();
+    await fireEvent.press(screen.getByRole("button", { name: "Afficher les zones sur la carte" }));
+    expect(mockMapProps.zones).toHaveLength(2);
+  });
+
+  it("n'affiche rien quand aucune zone ne surveille le véhicule", async () => {
+    mockZones = [{ id: "z2", name: "Rabat", vehicleIds: ["v2"] }];
+    await render(<VehicleDetailScreen id="v1" />);
+    expect(mockMapProps.zones).toEqual([]);
+    expect(screen.queryByText(/Zones surveillées/)).toBeNull();
+  });
+});
+
 });

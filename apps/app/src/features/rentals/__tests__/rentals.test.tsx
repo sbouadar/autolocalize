@@ -35,6 +35,8 @@ jest.mock("expo-router", () => ({
 jest.mock("@/lib/auth", () => ({
   useAuth: () => ({ me: { user: { role: mockRole }, tenant: { rentalsEnabled: mockEnabled, currency: "MAD" } } }),
 }));
+const mockOpenPdf = jest.fn();
+jest.mock("@/lib/private-pdf", () => ({ openPrivatePdf: (...args: unknown[]) => mockOpenPdf(...args) }));
 jest.mock("@/lib/confirm", () => ({ confirmAction: (...args: unknown[]) => mockConfirm(...args) }));
 jest.mock("@/lib/zones", () => ({ useZones: () => ({ data: { zones: [{ id: "z1", name: "Maroc" }] } }) }));
 // Sélecteur de photo et image privée : remplacés par des éléments simples (pas d'appareil photo en test).
@@ -396,6 +398,17 @@ describe("Départ, retour et photos", () => {
     await render(<RentalDetailScreen id="r1" />);
     expect(screen.queryByText("Ajouter une photo")).toBeNull();
     expect(screen.queryByRole("button", { name: "Départ du véhicule" })).toBeNull();
+  });
+
+  it("ouvre le contrat et l'état de retour, et signale un échec", async () => {
+    mockRentals = [rental({ id: "abc123def456", status: "COMPLETED", pickedUpAt: "2026-12-01T09:05:00Z", returnedAt: "2026-12-03T08:00:00Z" })];
+    mockOpenPdf.mockReset().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("réseau"));
+    await render(<RentalDetailScreen id="abc123def456" />);
+    await fireEvent.press(screen.getByRole("button", { name: "Contrat de location (PDF)" }));
+    expect(mockOpenPdf).toHaveBeenCalledWith("/rentals/abc123def456/contract.pdf", "contrat-23DEF456.pdf");
+    await fireEvent.press(screen.getByRole("button", { name: "État de retour (PDF)" }));
+    expect(mockOpenPdf).toHaveBeenLastCalledWith("/rentals/abc123def456/return-report.pdf", "etat-de-retour-23DEF456.pdf");
+    expect(screen.getByText("Le document n’a pas pu être ouvert. Vérifiez la connexion et réessayez.")).toBeTruthy();
   });
 
   it("montre les compteurs, le carburant et la distance d'une location terminée", async () => {

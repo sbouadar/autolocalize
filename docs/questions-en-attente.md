@@ -20,8 +20,6 @@ prochaine session**, puis vider ce fichier.
    une indisponibilité déclarée sur le véhicule la suspend.
 5. **Contrat (M6) : signature dessinée à l'écran ?** Choix par défaut : contrat imprimé et signé sur
    papier (deux exemplaires), comme prévu au plan.
-6. **Contrat et état de retour sur mobile** : ils s'ouvrent aujourd'hui depuis la version web
-   seulement. À ajouter à l'app mobile avant la publication dans les stores ?
 7. **Sauvegardes** : aucune sauvegarde automatique n'existe (base, logos, photos et contrats). Les
    mettre en place demande un accès root au VPS : voulez-vous que je prépare un script versionné dans
    `deploy/` à lancer par une tâche planifiée du serveur, et où envoyer les sauvegardes (autre

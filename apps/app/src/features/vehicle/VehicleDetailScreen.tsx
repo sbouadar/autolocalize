@@ -17,6 +17,7 @@ import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { pointsDuring, tripTotals } from "@/lib/trips";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { hasPosition, lastSeen, useRoute, useTrips, useVehicle, vehicleLabel, vehicleState } from "@/lib/vehicles";
+import { useZones } from "@/lib/zones";
 import { VehicleMap } from "../map/VehicleMap";
 import { DeadlinesCard } from "./DeadlinesCard";
 import { EngineCard } from "./EngineCard";
@@ -90,6 +91,10 @@ export function VehicleDetailScreen({ id }: { id: string }) {
     const trip = selectedTrip != null ? trips[selectedTrip] : undefined;
     return trip ? pointsDuring(points, trip) : points;
   }, [routeQuery.data, trips, selectedTrip]);
+  // Zones qui surveillent ce véhicule : dessinées sur sa carte (masquables).
+  const zonesData = useZones().data;
+  const watchingZones = useMemo(() => (zonesData?.zones ?? []).filter((z) => z.vehicleIds.includes(id)), [zonesData, id]);
+  const [showZones, setShowZones] = useState(true);
   const mapVehicles = useMemo(() => (vehicle && hasPosition(vehicle) ? [vehicle] : []), [vehicle]);
   const [replaying, setReplaying] = useState(false);
   const [frame, setFrame] = useState<ReplayFrame | null>(null);
@@ -171,8 +176,26 @@ export function VehicleDetailScreen({ id }: { id: string }) {
           onSelect={noop}
           route={route}
           cursor={replaying ? frame : null}
+          zones={showZones ? watchingZones : undefined}
         />
       </View>
+      {watchingZones.length > 0 ? (
+        <View style={styles.zonesRow}>
+          <MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={colors.muted} />
+          <Text style={[styles.muted, styles.flex]} numberOfLines={2}>
+            Zones surveillées : {watchingZones.map((z) => z.name).join(", ")}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showZones ? "Masquer les zones sur la carte" : "Afficher les zones sur la carte"}
+            onPress={() => setShowZones((v) => !v)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.zonesToggle, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={styles.zonesToggleText}>{showZones ? "Masquer" : "Afficher"}</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {replaying ? (
         <ReplayControls
           key={routeKey}
@@ -278,6 +301,9 @@ const styles = StyleSheet.create({
   fact: { fontFamily: fonts.regular, fontSize: 14, color: colors.text },
   muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   map: { height: 320, borderRadius: radius.xl, overflow: "hidden" },
+  zonesRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  zonesToggle: { minHeight: 36, justifyContent: "center", paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: colors.fill },
+  zonesToggleText: { fontFamily: fonts.bold, fontSize: 13, color: colors.text },
   section: { fontSize: 18, fontFamily: fonts.heavy, letterSpacing: -0.3, color: colors.text, marginTop: spacing.md },
   loader: { marginVertical: spacing.xl },
   tiles: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },

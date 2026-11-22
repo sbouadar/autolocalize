@@ -33,7 +33,16 @@
       "expo-status-bar",
       "expo-image",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "L’application accède à vos photos pour joindre des photos d’état des lieux aux locations et choisir le logo de votre société.",
+          "cameraPermission": "L’application utilise l’appareil photo pour prendre les photos d’état des lieux au départ et au retour d’un véhicule.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "scheme": "autolocalize",
     "experiments": {
