@@ -1,7 +1,7 @@
 # Plan — fonctions métier (location et gestion de flotte)
 
 Rédigé le 2026-11-21, à la demande de l'utilisateur, pour être suivi par une autre session.
-Statut : **plan validé, M1 à M9 déployés ; restent M10 et M11.** Les cinq questions ouvertes ont été tranchées par
+Statut : **plan validé, M1 à M10 déployés ; reste M11.** Les cinq questions ouvertes ont été tranchées par
 l'utilisateur le 2026-11-21 (section 6). Les points encore marqués « à confirmer » sont des choix
 par défaut : poser la question (une seule à la fois) au début de la tranche concernée.
 
@@ -594,5 +594,5 @@ déployée, commit) et cocher ici :
 - [x] M7 Dépenses et rentabilité (déployé le 2026-11-22)
 - [x] M8 Conducteurs (déployé le 2026-11-22)
 - [x] M9 Exports CSV (déployé le 2026-11-22)
-- [ ] M10 Lien de partage
+- [x] M10 Lien de partage (déployé le 2026-11-22)
 - [ ] M11 Abonnements

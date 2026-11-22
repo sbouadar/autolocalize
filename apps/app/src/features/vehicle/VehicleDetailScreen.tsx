@@ -26,6 +26,7 @@ import { ExpensesCard } from "./ExpensesCard";
 import { MaintenanceCard } from "./MaintenanceCard";
 import { OdometerCard } from "./OdometerCard";
 import { RentalsCard } from "./RentalsCard";
+import { ShareCard } from "./ShareCard";
 import { ReplayControls } from "./ReplayControls";
 import { TripList } from "./TripList";
 import { UnavailabilityCard } from "./UnavailabilityCard";
@@ -165,6 +166,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
       </View>
 
       <EngineCard vehicle={vehicle} />
+      {canAddReading ? <ShareCard vehicleId={vehicle.id} /> : null}
       <OdometerCard vehicleId={vehicle.id} canAdd={canAddReading} canDelete={canEdit} />
 
       {vehicleQuery.data?.liveDataAvailable === false ? (

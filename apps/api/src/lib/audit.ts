@@ -33,6 +33,8 @@ export type AuditAction =
   | "driver.delete"
   | "driver.assign"
   | "export.download"
+  | "share.create"
+  | "share.revoke"
   | "expense.create"
   | "expense.update"
   | "expense.delete"
