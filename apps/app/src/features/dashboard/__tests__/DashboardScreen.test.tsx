@@ -14,8 +14,9 @@ jest.mock("@/lib/dashboard", () => ({
     return mockQuery;
   },
 }));
+let mockRole = "VIEWER";
 jest.mock("@/lib/auth", () => ({
-  useAuth: () => ({ me: { user: { name: "Alice" }, tenant: null } }),
+  useAuth: () => ({ me: { user: { name: "Alice", role: mockRole }, tenant: null } }),
 }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 // Synthèse « À surveiller » : testée à part (FleetWatch.test.tsx).
@@ -74,5 +75,17 @@ describe("DashboardScreen", () => {
     expect(screen.getByText("Serveur injoignable.")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Réessayer" }));
     expect(mockQuery.refetch).toHaveBeenCalled();
+  });
+
+  it("ouvre les dépenses et la rentabilité, sauf pour un agent", async () => {
+    mockRole = "VIEWER";
+    const view = await render(<DashboardScreen />);
+    await fireEvent.press(screen.getByRole("button", { name: "Dépenses et rentabilité" }));
+    expect(mockPush).toHaveBeenCalledWith("/profitability");
+    await view.unmount();
+    mockRole = "AGENT";
+    await render(<DashboardScreen />);
+    expect(screen.queryByRole("button", { name: "Dépenses et rentabilité" })).toBeNull();
+    mockRole = "VIEWER";
   });
 });

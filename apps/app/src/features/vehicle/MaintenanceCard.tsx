@@ -6,6 +6,7 @@ import { ChoiceChips } from "@/components/ChoiceChips";
 import { Banner } from "@/components/States";
 import { TextField } from "@/components/TextField";
 import { formMessage } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { confirmAction } from "@/lib/confirm";
 import { formatDateOnly, parseFrenchDate, todayFrench } from "@/lib/dates";
 import {
@@ -20,6 +21,7 @@ import {
   type MaintenanceType,
 } from "@/lib/fleet-care";
 import { formatKm } from "@/lib/format";
+import { formatMoney, parseAmount } from "@/lib/rentals";
 import { colors, fonts, radius, spacing } from "@/lib/theme";
 
 const TYPE_OPTIONS = maintenanceTypeSchema.options.map((key) => ({ key, label: MAINTENANCE_TYPE_LABELS[key] }));
@@ -112,17 +114,21 @@ function DoneForm({ vehicleId, plan, onDone }: { vehicleId: string; plan: Mainte
   const [date, setDate] = useState(todayFrench());
   const [kmInput, setKmInput] = useState("");
   const [garage, setGarage] = useState("");
+  const [cost, setCost] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const currency = useAuth().me?.tenant?.currency ?? "MAD";
 
   const save = async () => {
     setError(null);
+    const costValue = parseAmount(cost);
+    if (Number.isNaN(costValue) || costValue === 0) return setError("Saisissez le coût en chiffres (ex. 380 ou 380,50), ou laissez-le vide.");
     const doneOn = parseFrenchDate(date);
     if (!doneOn) return setError("Saisissez la date au format JJ/MM/AAAA.");
     const km = parseInteger(kmInput);
     if (Number.isNaN(km)) return setError("Saisissez le compteur en chiffres.");
     if (plan.intervalKm != null && km == null) return setError("Indiquez le compteur : il sert à calculer le prochain entretien.");
     try {
-      await addRecord.mutateAsync({ planId: plan.id, doneOn, km, garage: garage.trim() || null, notes: null });
+      await addRecord.mutateAsync({ planId: plan.id, doneOn, km, garage: garage.trim() || null, notes: null, cost: costValue });
       onDone();
     } catch (err) {
       setError(formMessage(err));
@@ -139,7 +145,14 @@ function DoneForm({ vehicleId, plan, onDone }: { vehicleId: string; plan: Mainte
           <TextField label="Compteur (km)" value={kmInput} onChangeText={setKmInput} keyboardType="number-pad" maxLength={9} />
         </View>
       </View>
-      <TextField label="Garage (facultatif)" value={garage} onChangeText={setGarage} maxLength={191} />
+      <View style={styles.pair}>
+        <View style={styles.flex}>
+          <TextField label="Garage (facultatif)" value={garage} onChangeText={setGarage} maxLength={191} />
+        </View>
+        <View style={styles.flex}>
+          <TextField label={`Coût (${currency}, facultatif)`} value={cost} onChangeText={setCost} keyboardType="decimal-pad" maxLength={12} />
+        </View>
+      </View>
       {error ? <Banner message={error} tone="danger" /> : null}
       <View style={styles.pair}>
         <View style={styles.flex}>
@@ -171,6 +184,7 @@ interface MaintenanceCardProps {
 
 /** Bloc « Entretien » de la fiche : plans périodiques avec leur échéance, entretiens réalisés. */
 export function MaintenanceCard({ vehicleId, canEdit, canRecord }: MaintenanceCardProps) {
+  const currency = useAuth().me?.tenant?.currency ?? "MAD";
   const { data, isPending, isError, refetch } = useMaintenancePlans(vehicleId);
   const records = useMaintenanceRecords(vehicleId).data?.records ?? [];
   const actions = useMaintenanceActions(vehicleId);
@@ -250,6 +264,7 @@ export function MaintenanceCard({ vehicleId, canEdit, canRecord }: MaintenanceCa
               {formatDateOnly(r.doneOn)} · {maintenanceName(r)}
               {r.km != null ? ` · ${formatKm(r.km)}` : ""}
               {r.garage ? ` · ${r.garage}` : ""}
+              {r.cost ? ` · ${formatMoney(r.cost, currency)}` : ""}
             </Text>
           ))}
         </View>

@@ -210,6 +210,8 @@ const maintenanceRecordSchema = z.object({
   km: z.number().nullable(),
   garage: z.string().nullable(),
   notes: z.string().nullable(),
+  /** Coût saisi avec l'entretien (« 380.00 »), absent d'une API pas encore à jour. */
+  cost: z.string().nullable().optional().default(null),
 });
 export type MaintenanceRecord = z.infer<typeof maintenanceRecordSchema>;
 
@@ -258,13 +260,19 @@ export interface MaintenanceRecordInput {
   km: number | null;
   garage: string | null;
   notes: string | null;
+  /** Coût de l'entretien, enregistré comme une dépense. */
+  cost?: number | null;
 }
 
 export function useMaintenanceActions(vehicleId: string) {
   const queryClient = useQueryClient();
   // Un entretien avec kilométrage crée aussi un relevé de compteur : la fiche du véhicule est à relire.
   const refresh = () =>
-    Promise.all([queryClient.invalidateQueries({ queryKey: MAINTENANCE_KEY }), queryClient.invalidateQueries({ queryKey: ["vehicles", vehicleId, "odometer"] })]);
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: MAINTENANCE_KEY }),
+      queryClient.invalidateQueries({ queryKey: ["vehicles", vehicleId, "odometer"] }),
+      queryClient.invalidateQueries({ queryKey: ["expenses"] }),
+    ]);
   const base = `/vehicles/${encodeURIComponent(vehicleId)}`;
   return {
     createPlan: useMutation({

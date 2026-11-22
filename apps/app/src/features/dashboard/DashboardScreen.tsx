@@ -68,6 +68,7 @@ function Ranking({ vehicles }: { vehicles: Kpis["vehicles"] }) {
 export function DashboardScreen() {
   const { me } = useAuth();
   const branding = useBranding();
+  const router = useRouter();
   useDocumentTitle(`Tableau de bord — ${branding.name}`);
   const [periodKey, setPeriodKey] = useState<PeriodKey>("today");
   const { data, isPending, error, refetch } = useKpis(periodKey);
@@ -83,6 +84,17 @@ export function DashboardScreen() {
     <ScrollView contentContainerStyle={styles.page}>
       {greeting}
       <FleetWatch />
+      {me?.user.role === "TENANT_ADMIN" || me?.user.role === "VIEWER" ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dépenses et rentabilité"
+          onPress={() => router.push("/profitability")}
+          style={({ pressed }) => [styles.link, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.linkTitle}>Dépenses et rentabilité</Text>
+          <Text style={styles.muted}>{me.tenant?.rentalsEnabled ? "Recettes, dépenses et marge par véhicule" : "Dépenses et coût au kilomètre par véhicule"}</Text>
+        </Pressable>
+      ) : null}
       <SegmentedControl options={DASHBOARD_PERIODS} value={periodKey} onChange={setPeriodKey} />
 
       {isPending ? (
@@ -136,6 +148,8 @@ export function DashboardScreen() {
 
 const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.lg, width: "100%", maxWidth: 960, alignSelf: "center" },
+  link: { gap: 2, padding: spacing.lg, borderRadius: radius.lg, borderCurve: "continuous", backgroundColor: colors.fill },
+  linkTitle: { fontFamily: fonts.heavy, fontSize: 16, color: colors.text },
   hello: { fontSize: 22, fontFamily: fonts.heavy, color: colors.text },
   muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   section: { gap: spacing.sm },

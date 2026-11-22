@@ -12,7 +12,7 @@ jest.mock("@/lib/fleet-care", () => ({
   ...jest.requireActual("@/lib/fleet-care"),
   useMaintenancePlans: () => ({ data: { plans: mockPlans }, isPending: false, isError: false, refetch: jest.fn() }),
   useMaintenanceRecords: () => ({
-    data: { records: [{ id: "r1", planId: "m1", type: "OIL_CHANGE", label: null, doneOn: "2026-03-01", km: 40_000, garage: "Garage Atlas", notes: null }] },
+    data: { records: [{ id: "r1", planId: "m1", type: "OIL_CHANGE", label: null, doneOn: "2026-03-01", km: 40_000, garage: "Garage Atlas", notes: null, cost: "380.00" }] },
   }),
   useMaintenanceActions: () => ({
     createPlan: { mutateAsync: mockCreatePlan, isPending: false },
@@ -21,6 +21,7 @@ jest.mock("@/lib/fleet-care", () => ({
   }),
 }));
 jest.mock("@/lib/confirm", () => ({ confirmAction: async () => true }));
+jest.mock("@/lib/auth", () => ({ useAuth: () => ({ me: { user: { role: "AGENT" }, tenant: { currency: "MAD" } } }) }));
 
 const oil: MaintenancePlan = {
   id: "m1",
@@ -64,7 +65,7 @@ describe("MaintenanceCard", () => {
     expect(screen.getByText("Vidange")).toBeTruthy();
     expect(screen.getByText(/^tous les 10\s000\skm ou tous les 12 mois$/)).toBeTruthy();
     expect(screen.getByText("dans 700 km ou dans 93 jours")).toBeTruthy();
-    expect(screen.getByText(/^01\/03\/2026 · Vidange · 40\s000\skm · Garage Atlas$/)).toBeTruthy();
+    expect(screen.getByText(/^01\/03\/2026 · Vidange · 40\s000\skm · Garage Atlas · 380 DH$/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ajouter" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Vidange : marquer comme fait" })).toBeNull();
   });
@@ -91,7 +92,23 @@ describe("MaintenanceCard", () => {
     expect(screen.getByText(/Indiquez le compteur/)).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText("Compteur (km)"), "50 200");
     await fireEvent.press(screen.getByRole("button", { name: "Enregistrer" }));
-    expect(mockAddRecord).toHaveBeenCalledWith({ planId: "m1", doneOn: "2026-11-20", km: 50_200, garage: null, notes: null });
+    expect(mockAddRecord).toHaveBeenCalledWith({ planId: "m1", doneOn: "2026-11-20", km: 50_200, garage: null, notes: null, cost: null });
+  });
+
+  it("enregistre le coût de l'entretien, et l'affiche dans l'historique", async () => {
+    mockPlans = [oil];
+    mockAddRecord.mockResolvedValue({});
+    await render(<MaintenanceCard vehicleId="v1" canEdit={false} canRecord />);
+    expect(screen.getByText(/Garage Atlas · 380 DH/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Vidange : marquer comme fait" }));
+    await fireEvent.changeText(screen.getByLabelText("Vidange fait le"), "20/11/2026");
+    await fireEvent.changeText(screen.getByLabelText("Compteur (km)"), "50200");
+    await fireEvent.changeText(screen.getByLabelText("Coût (MAD, facultatif)"), "abc");
+    await fireEvent.press(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(screen.getByText(/Saisissez le coût en chiffres/)).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Coût (MAD, facultatif)"), "380,50");
+    await fireEvent.press(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(mockAddRecord).toHaveBeenCalledWith(expect.objectContaining({ cost: 380.5, km: 50_200 }));
   });
 
   it("invite à compléter un plan sans référence, et laisse l'admin le supprimer", async () => {

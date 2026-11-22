@@ -53,6 +53,7 @@ model Tenant {
   rentals                 Rental[]
   maintenancePlans        MaintenancePlan[]
   maintenanceRecords      MaintenanceRecord[]
+  expenses                Expense[]
 
   @@map("tenants")
 }
@@ -198,6 +199,7 @@ model Vehicle {
   rentals                 Rental[]
   maintenancePlans        MaintenancePlan[]
   maintenanceRecords      MaintenanceRecord[]
+  expenses                Expense[]
 
   @@index([tenantId])
   @@map("vehicles")
@@ -357,13 +359,57 @@ model MaintenanceRecord {
   createdBy String
   createdAt DateTime        @default(now())
 
-  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  vehicle Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  plan    MaintenancePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle  Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  plan     MaintenancePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  // Coût de l'entretien (M7) : dépense saisie avec lui, supprimée avec lui.
+  expenses Expense[]
 
   @@index([vehicleId, doneOn])
   @@index([tenantId])
   @@map("maintenance_records")
+}
+
+// ─── Dépenses (M7) ────────────────────────────────────────────────────────────
+
+// Dépense d'un véhicule, dans la devise du client. Le coût d'un entretien est une dépense liée à
+// l'entretien réalisé (supprimée avec lui).
+model Expense {
+  id                  String          @id @default(cuid())
+  tenantId            String
+  vehicleId           String
+  spentOn             DateTime        @db.Date
+  category            ExpenseCategory
+  amount              Decimal         @db.Decimal(12, 2)
+  liters              Float? // carburant
+  km                  Int? // compteur au moment de la dépense (information)
+  maintenanceRecordId String?
+  notes               String?         @db.VarChar(500)
+  createdBy           String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle           Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  maintenanceRecord MaintenanceRecord? @relation(fields: [maintenanceRecordId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, spentOn])
+  @@index([tenantId, spentOn])
+  @@index([maintenanceRecordId])
+  @@map("expenses")
+}
+
+enum ExpenseCategory {
+  FUEL
+  MAINTENANCE
+  REPAIR
+  INSURANCE
+  TAX
+  TOLL
+  FINE
+  PARKING
+  CLEANING
+  OTHER
 }
 
 // ─── Locataires et réservations (M5, module location) ────────────────────────
@@ -414,33 +460,33 @@ enum IdDocumentType {
 // Location d'un véhicule à un locataire. Le véhicule peut être retiré du client après coup : la
 // location reste lisible grâce aux copies de son nom et de sa plaque.
 model Rental {
-  id            String       @id @default(cuid())
-  tenantId      String
-  vehicleId     String?
-  vehicleName   String       @db.VarChar(191)
-  vehiclePlate  String?      @db.VarChar(32)
-  customerId    String
-  driverName    String?      @db.VarChar(191) // si le conducteur n'est pas le locataire
-  status        RentalStatus @default(RESERVED)
-  startAt       DateTime // prévu
-  endAt         DateTime // prévu
-  pickedUpAt    DateTime? // départ réel
-  returnedAt    DateTime? // retour réel
-  odometerOutKm Int?
-  odometerInKm  Int?
-  fuelOut       Int? // niveau en huitièmes (0 à 8)
-  fuelIn        Int?
-  gpsDistanceKm Float? // distance GPS entre départ et retour, calculée au retour
-  price         Decimal?     @db.Decimal(12, 2) // saisi à la main, dans la devise du client
-  deposit       Decimal?     @db.Decimal(12, 2)
-  allowedZoneId String? // zone que le véhicule ne doit pas quitter
-  pickupLocation String?     @db.VarChar(191) // lieu de prise en charge (agence ou saisie libre)
-  returnLocation String?     @db.VarChar(191) // lieu de dépôt
-  notes         String?      @db.Text
-  createdBy     String
-  cancelledAt   DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  tenantId       String
+  vehicleId      String?
+  vehicleName    String       @db.VarChar(191)
+  vehiclePlate   String?      @db.VarChar(32)
+  customerId     String
+  driverName     String?      @db.VarChar(191) // si le conducteur n'est pas le locataire
+  status         RentalStatus @default(RESERVED)
+  startAt        DateTime // prévu
+  endAt          DateTime // prévu
+  pickedUpAt     DateTime? // départ réel
+  returnedAt     DateTime? // retour réel
+  odometerOutKm  Int?
+  odometerInKm   Int?
+  fuelOut        Int? // niveau en huitièmes (0 à 8)
+  fuelIn         Int?
+  gpsDistanceKm  Float? // distance GPS entre départ et retour, calculée au retour
+  price          Decimal?     @db.Decimal(12, 2) // saisi à la main, dans la devise du client
+  deposit        Decimal?     @db.Decimal(12, 2)
+  allowedZoneId  String? // zone que le véhicule ne doit pas quitter
+  pickupLocation String?      @db.VarChar(191) // lieu de prise en charge (agence ou saisie libre)
+  returnLocation String?      @db.VarChar(191) // lieu de dépôt
+  notes          String?      @db.Text
+  createdBy      String
+  cancelledAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   vehicle        Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: SetNull)

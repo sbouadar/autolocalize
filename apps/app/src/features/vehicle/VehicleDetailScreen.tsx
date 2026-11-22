@@ -21,6 +21,7 @@ import { useZones } from "@/lib/zones";
 import { VehicleMap } from "../map/VehicleMap";
 import { DeadlinesCard } from "./DeadlinesCard";
 import { EngineCard } from "./EngineCard";
+import { ExpensesCard } from "./ExpensesCard";
 import { MaintenanceCard } from "./MaintenanceCard";
 import { OdometerCard } from "./OdometerCard";
 import { RentalsCard } from "./RentalsCard";
@@ -249,6 +250,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
       {rentalsEnabled ? <RentalsCard vehicleId={vehicle.id} canBook={canAddReading} /> : null}
       <UnavailabilityCard vehicleId={vehicle.id} canEdit={canAddReading} />
       <MaintenanceCard vehicleId={vehicle.id} canEdit={canEdit} canRecord={canAddReading} />
+      {role && role !== "SUPER_ADMIN" ? <ExpensesCard vehicleId={vehicle.id} canAdd={canAddReading} canDelete={canEdit} /> : null}
       <DeadlinesCard vehicleId={vehicle.id} canEdit={canEdit} />
       <VehicleInfoCard vehicle={vehicle} canEdit={canEdit} />
     </ScrollView>

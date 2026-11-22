@@ -1,11 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { audit } from "../lib/audit.js";
+import { centsToString, toCents } from "../lib/expenses.js";
 import { isoDate } from "../lib/deadlines.js";
 import { tenantScope } from "../lib/fleet.js";
 import { currentKmByVehicle, MAINTENANCE_TYPES, planSelect, publicPlan } from "../lib/maintenance.js";
 import { prisma } from "../lib/prisma.js";
 import { firstIssue } from "../lib/tenant-branding.js";
+import { expenseAmount } from "./expenses.js";
 import { findOwnedVehicle, REPORT_RATE_LIMIT } from "./vehicles.js";
 
 // Entretien (M4). Plans : lecture par tous, écriture par l'admin du client. Entretiens réalisés :
@@ -57,6 +59,8 @@ const recordBody = z
     km: z.number().int().min(0).max(KM_MAX).nullable().optional(),
     garage: optionalText(191).optional(),
     notes: optionalText(2000).optional(),
+    /** Coût de l'entretien : enregistré comme une dépense « entretien » liée (M7). */
+    cost: expenseAmount.nullable().optional(),
   })
   .strict();
 
@@ -69,8 +73,24 @@ function planError(p: { type: string; label: string | null; intervalKm: number |
   return null;
 }
 
-const recordSelect = { id: true, planId: true, type: true, label: true, doneOn: true, km: true, garage: true, notes: true, createdAt: true } as const;
-const publicRecord = <T extends { doneOn: Date }>(r: T) => ({ ...r, doneOn: isoDate(r.doneOn) });
+const recordSelect = {
+  id: true,
+  planId: true,
+  type: true,
+  label: true,
+  doneOn: true,
+  km: true,
+  garage: true,
+  notes: true,
+  createdAt: true,
+  expenses: { select: { amount: true } },
+} as const;
+const publicRecord = <T extends { doneOn: Date; expenses: { amount: { toString(): string } }[] }>({ expenses, ...r }: T) => ({
+  ...r,
+  doneOn: isoDate(r.doneOn),
+  /** Coût (dépenses liées), « 450.00 » ; null si aucun coût n'a été saisi. */
+  cost: expenses.length ? centsToString(expenses.reduce((sum, e) => sum + toCents(e.amount), 0)) : null,
+});
 
 const maintenanceRoutes: FastifyPluginAsync = async (app) => {
   // Entretiens à prévoir ou en retard dans toute la flotte.
@@ -171,7 +191,7 @@ const maintenanceRoutes: FastifyPluginAsync = async (app) => {
       if (!vehicle) return reply.notFound();
       const parsed = recordBody.safeParse(request.body);
       if (!parsed.success) return reply.badRequest(firstIssue(parsed.error));
-      const { planId, doneOn, km = null, garage = null, notes = null } = parsed.data;
+      const { planId, doneOn, km = null, garage = null, notes = null, cost = null } = parsed.data;
 
       const plan = planId
         ? await prisma.maintenancePlan.findFirst({
@@ -205,7 +225,32 @@ const maintenanceRoutes: FastifyPluginAsync = async (app) => {
 
       const record = await prisma.$transaction(async (tx) => {
         const created = await tx.maintenanceRecord.create({
-          data: { tenantId: vehicle.tenantId, vehicleId: vehicle.id, planId: plan?.id ?? null, type, label, doneOn, km, garage, notes, createdBy: request.currentUser!.id },
+          data: {
+            tenantId: vehicle.tenantId,
+            vehicleId: vehicle.id,
+            planId: plan?.id ?? null,
+            type,
+            label,
+            doneOn,
+            km,
+            garage,
+            notes,
+            createdBy: request.currentUser!.id,
+            ...(cost != null && {
+              expenses: {
+                create: {
+                  tenantId: vehicle.tenantId,
+                  vehicleId: vehicle.id,
+                  spentOn: doneOn,
+                  category: "MAINTENANCE",
+                  amount: cost.toFixed(2),
+                  km,
+                  notes: [label ?? null, garage].filter(Boolean).join(" · ").slice(0, 500) || null,
+                  createdBy: request.currentUser!.id,
+                },
+              },
+            }),
+          },
           select: recordSelect,
         });
         // La référence du plan n'avance que si cet entretien est plus récent que le précédent.
@@ -222,7 +267,7 @@ const maintenanceRoutes: FastifyPluginAsync = async (app) => {
       await audit(request, "maintenance.record.create", {
         tenantId: vehicle.tenantId,
         targetId: record.id,
-        details: { vehicleId: vehicle.id, type, planId: plan?.id ?? null, doneOn: isoDate(doneOn), km },
+        details: { vehicleId: vehicle.id, type, planId: plan?.id ?? null, doneOn: isoDate(doneOn), km, cost: cost?.toFixed(2) ?? null },
       });
       return reply.code(201).send({ record: publicRecord(record) });
     },
