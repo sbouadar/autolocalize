@@ -6,6 +6,7 @@ import { alertRulesTask } from "./lib/alert-rules.js";
 import { deadlineAlertsTask } from "./lib/deadlines.js";
 import { driverLicenseAlertsTask } from "./lib/drivers.js";
 import { eventPurgeTask } from "./lib/event-purge.js";
+import { setPushLogger } from "./lib/push.js";
 import { maintenanceAlertsTask } from "./lib/maintenance.js";
 import { overdueRentalsTask, unauthorizedUseTask } from "./lib/rental-alerts.js";
 import { prisma } from "./lib/prisma.js";
@@ -28,6 +29,7 @@ tasks.daily.push(deadlineAlertsTask, maintenanceAlertsTask, driverLicenseAlertsT
 tasks.frequent.push(overdueRentalsTask, unauthorizedUseTask, alertRulesTask);
 
 // Tâche planifiée (alertes d'échéances, d'entretien, de location) : jamais pendant les tests.
+setPushLogger(app.log);
 const stopScheduler = config.NODE_ENV === "test" ? () => {} : startScheduler(app.log);
 
 const shutdown = async (signal: string) => {

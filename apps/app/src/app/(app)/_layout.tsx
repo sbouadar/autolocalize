@@ -1,5 +1,5 @@
-import { Redirect, Stack } from "expo-router";
-import { useMemo } from "react";
+import { Redirect, Stack, useRouter } from "expo-router";
+import { useEffect, useMemo } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { ErrorState, LoadingState } from "@/components/States";
 import { ForcePasswordChangeScreen } from "@/features/profile/ForcePasswordChangeScreen";
@@ -7,6 +7,7 @@ import { userMessage } from "@/lib/api";
 import { ME_QUERY_KEY, useAuth } from "@/lib/auth";
 import { resolveBranding } from "@/lib/branding";
 import { BrandingProvider } from "@/lib/branding-context";
+import { onNotificationOpened, registerForPush } from "@/lib/push";
 import { colors } from "@/lib/theme";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -15,6 +16,16 @@ export default function AppLayout() {
   const { me, loading, error } = useAuth();
   const queryClient = useQueryClient();
   const branding = useMemo(() => resolveBranding(me?.tenant), [me?.tenant]);
+  const router = useRouter();
+  // Notifications push : inscription de l'appareil une fois connecté (mobile, projet EAS requis).
+  const userId = me && !me.user.mustChangePassword ? me.user.id : null;
+  useEffect(() => {
+    if (!userId) return;
+    registerForPush().catch(() => {
+      // Refus ou indisponibilité : les alertes restent visibles dans l'onglet « Alertes ».
+    });
+    return onNotificationOpened(() => router.push("/alerts"));
+  }, [userId, router]);
 
   if (loading) return <LoadingState />;
   if (error && !me) {

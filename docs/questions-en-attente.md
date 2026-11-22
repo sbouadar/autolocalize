@@ -31,3 +31,8 @@ prochaine session**, puis vider ce fichier.
    au moment de l'alerte, donnée personnelle) ? La purge est écrite mais **désactivée** : pour
    l'activer, ajouter `EVENTS_RETENTION_DAYS=365` (par exemple) au `.env` de l'API sur le VPS puis
    relancer le déploiement. Choix par défaut proposé : 12 mois, à faire valider par un juriste.
+10. **Notifications push** : elles sont prêtes, mais Expo exige un projet EAS lié à votre compte
+    Expo pour délivrer les jetons. Dans `apps/app`, lancer `npx eas-cli init` (connexion à votre
+    compte Expo), committer la modification de `app.json`, puis faire une version de développement
+    (`npx eas-cli build --profile development --platform android`) pour les essayer sur un
+    téléphone : Expo Go ne les reçoit pas sur Android. Voulez-vous que je prépare `eas.json` ?

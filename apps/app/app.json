@@ -36,6 +36,12 @@
       "expo-font",
       "expo-sharing",
       [
+        "expo-notifications",
+        {
+          "color": "#141414"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "L’application accède à vos photos pour joindre des photos d’état des lieux aux locations et choisir le logo de votre société.",

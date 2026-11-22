@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { z } from "zod";
 import { ApiError, api, setSessionToken, setUnauthorizedHandler } from "./api";
+import { unregisterPush } from "./push";
 import { STORAGE_KEYS, storage } from "./storage";
 import { meSchema, type Me } from "./types";
 import { clearZoneSelection } from "./zone-selection";
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    await unregisterPush();
     try {
       await api("/auth/sign-out", { method: "POST", body: {} });
     } catch {

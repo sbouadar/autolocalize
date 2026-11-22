@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "./prisma.js";
+import { notifyAlert } from "./push.js";
 import { knotsToKmh } from "./traccar.js";
 
 // Événements transmis par Traccar (event.forward.url) : conversion vers nos types et enregistrement.
@@ -100,8 +101,10 @@ export async function recordTraccarEvent(body: unknown): Promise<RecordResult> {
   const located = position && (position.latitude !== 0 || position.longitude !== 0) ? position : null;
   const alarm = event.attributes?.alarm;
 
+  let stored;
   try {
-    await prisma.event.create({
+    stored = await prisma.event.create({
+      select: { id: true },
       data: {
         tenantId: vehicle.tenantId,
         vehicleId: vehicle.id,
@@ -121,6 +124,17 @@ export async function recordTraccarEvent(body: unknown): Promise<RecordResult> {
     // Événement déjà reçu (Traccar retransmet en cas d'échec).
     if (typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002") return "duplicate";
     throw err;
+  }
+  if (ALERT_TYPES.includes(type)) {
+    notifyAlert({
+      id: stored.id,
+      tenantId: vehicle.tenantId,
+      vehicleId: vehicle.id,
+      vehicleName: vehicle.name,
+      type,
+      zoneName: zone?.name ?? null,
+      speedKmh: located?.speed !== undefined ? knotsToKmh(located.speed) : null,
+    });
   }
 
   // Sortie de la zone autorisée d'une location en cours : alerte de location en plus de l'alerte de zone.
@@ -163,7 +177,8 @@ export interface AppEventInput {
 /** Enregistre une alerte produite par l'API, une seule fois par dedupKey. */
 export async function recordAppEvent(input: AppEventInput): Promise<"stored" | "duplicate"> {
   try {
-    await prisma.event.create({
+    const stored = await prisma.event.create({
+      select: { id: true },
       data: {
         tenantId: input.tenantId,
         vehicleId: input.vehicleId,
@@ -176,6 +191,7 @@ export async function recordAppEvent(input: AppEventInput): Promise<"stored" | "
         rentalId: input.rentalId ?? null,
       },
     });
+    notifyAlert({ id: stored.id, tenantId: input.tenantId, vehicleId: input.vehicleId, vehicleName: input.vehicleName, type: input.type, message: input.message ?? null });
     return "stored";
   } catch (err) {
     if (typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002") return "duplicate";

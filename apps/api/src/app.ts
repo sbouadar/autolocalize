@@ -22,6 +22,7 @@ import maintenanceRoutes from "./routes/maintenance.js";
 import meRoutes from "./routes/me.js";
 import odometerRoutes from "./routes/odometer.js";
 import publicRoutes from "./routes/public.js";
+import pushTokenRoutes from "./routes/push-tokens.js";
 import rentalOpsRoutes from "./routes/rental-ops.js";
 import rentalRoutes from "./routes/rentals.js";
 import tenantRoutes from "./routes/tenant.js";
@@ -92,6 +93,7 @@ export async function buildApp() {
       await api.register(zoneRoutes);
       await api.register(eventRoutes);
       await api.register(alertRuleRoutes);
+      await api.register(pushTokenRoutes);
       await api.register(adminRoutes);
     },
     { prefix: "/api" },
