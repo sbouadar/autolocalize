@@ -273,6 +273,8 @@ export interface HandoverInput {
   odometerKm: number;
   /** Carburant en huitièmes de réservoir (0 à 8). */
   fuelLevel: number;
+  /** Date réelle (instant ISO) ; absente : maintenant. */
+  at?: string;
 }
 
 export const FUEL_LEVELS = ["Vide", "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "Plein"] as const;

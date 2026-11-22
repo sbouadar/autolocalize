@@ -298,6 +298,46 @@ describe("RentalDetailScreen", () => {
 });
 
 describe("Départ, retour et photos", () => {
+  // Horloge figée au 22 novembre 2026, avant les locations de décembre des exemples.
+  beforeEach(() => jest.useFakeTimers({ doNotFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "setImmediate", "nextTick", "queueMicrotask"], now: new Date(2026, 10, 22, 10, 0) }));
+  afterEach(() => jest.useRealTimers());
+
+  it("propose la date réelle du départ et du retour d'une ancienne location", async () => {
+    const start = new Date(2026, 9, 5, 9, 0);
+    const end = new Date(2026, 9, 9, 18, 15);
+    mockRentals = [rental({ id: "r1", startAt: start.toISOString(), endAt: end.toISOString() })];
+    const view = await render(<RentalDetailScreen id="r1" />);
+    await fireEvent.press(screen.getByRole("button", { name: "Départ du véhicule" }));
+    // Départ prévu il y a plus d'un jour : la date prévue est préremplie.
+    expect(screen.getByRole("button", { name: "Jour du départ" }).props.accessibilityValue).toEqual({ text: "05/10/2026" });
+    await fireEvent.press(screen.getByRole("button", { name: "Jour du départ" }));
+    await fireEvent.press(screen.getByRole("button", { name: "6 octobre 2026" }));
+    await fireEvent.changeText(screen.getByLabelText("Compteur au départ (km)"), "45000");
+    await fireEvent.press(screen.getByRole("radio", { name: "3/4" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le départ" }));
+    expect(mockPickup).toHaveBeenCalledWith({ id: "r1", body: { odometerKm: 45_000, fuelLevel: 6, at: new Date(2026, 9, 6, 9, 0).toISOString() } });
+    await view.unmount();
+
+    const pickedUpAt = new Date(2026, 9, 6, 9, 0).toISOString();
+    mockRentals = [rental({ id: "r2", status: "ONGOING", startAt: start.toISOString(), endAt: end.toISOString(), pickedUpAt, odometerOutKm: 45_000, fuelOut: 6 })];
+    await render(<RentalDetailScreen id="r2" />);
+    await fireEvent.press(screen.getByRole("button", { name: "Retour du véhicule" }));
+    // L'heure prévue (18:15), hors des demi-heures, reste proposée.
+    expect(screen.getByRole("button", { name: "Heure du retour" }).props.accessibilityValue).toEqual({ text: "18:15" });
+    await fireEvent.changeText(screen.getByLabelText("Compteur au retour (km)"), "45900");
+    await fireEvent.press(screen.getByRole("radio", { name: "1/2" }));
+    // Un retour antérieur au départ réel est refusé.
+    await fireEvent.press(screen.getByRole("button", { name: "Jour du retour" }));
+    await fireEvent.press(screen.getByRole("button", { name: "5 octobre 2026" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le retour" }));
+    expect(screen.getByText("Le retour doit être après le départ.")).toBeTruthy();
+    expect(mockGiveBack).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole("button", { name: "Jour du retour" }));
+    await fireEvent.press(screen.getByRole("button", { name: "9 octobre 2026" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le retour" }));
+    expect(mockGiveBack).toHaveBeenCalledWith({ id: "r2", body: { odometerKm: 45_900, fuelLevel: 4, at: end.toISOString() } });
+  });
+
   it("enregistre le départ avec le compteur et le carburant", async () => {
     await render(<RentalDetailScreen id="r1" />);
     await fireEvent.press(screen.getByRole("button", { name: "Départ du véhicule" }));
