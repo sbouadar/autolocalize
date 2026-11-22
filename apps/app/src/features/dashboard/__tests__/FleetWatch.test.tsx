@@ -1,16 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import type { Deadline, Unavailability } from "@/lib/fleet-care";
+import type { Deadline, MaintenancePlan, Unavailability } from "@/lib/fleet-care";
 import { FleetWatch } from "../FleetWatch";
 
 const mockPush = jest.fn();
 let mockDeadlines: Deadline[];
 let mockUnavailable: Unavailability[];
+let mockMaintenance: MaintenancePlan[] = [];
 
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock("@/lib/fleet-care", () => ({
   ...jest.requireActual("@/lib/fleet-care"),
   useDueDeadlines: () => ({ data: { deadlines: mockDeadlines } }),
   useCurrentUnavailabilities: () => ({ data: { unavailabilities: mockUnavailable } }),
+  useDueMaintenance: () => ({ data: { plans: mockMaintenance } }),
 }));
 
 const deadline = (overrides: Partial<Deadline>): Deadline => ({
@@ -33,6 +35,7 @@ beforeEach(() => {
   mockPush.mockReset();
   mockDeadlines = [];
   mockUnavailable = [];
+  mockMaintenance = [];
 });
 
 describe("FleetWatch", () => {
@@ -52,6 +55,15 @@ describe("FleetWatch", () => {
     expect(screen.getByText("expire dans 10 jours")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: /^Clio, Assurance : expire dans 10 jours/ }));
     expect(mockPush).toHaveBeenCalledWith({ pathname: "/vehicles/[id]", params: { id: "v1" } });
+  });
+
+  it("signale les entretiens à prévoir ou en retard", async () => {
+    mockMaintenance = [
+      { id: "m1", vehicleId: "v1", vehicleName: "Clio", type: "OIL_CHANGE", label: null, intervalKm: 10_000, intervalDays: null, lastDoneAt: null, lastDoneKm: 40_000, currentKm: 50_300, status: "OVERDUE", nextKm: 50_000, kmLeft: -300, nextDate: null, daysLeft: null },
+    ];
+    await render(<FleetWatch />);
+    expect(screen.getByText("Entretien : vidange")).toBeTruthy();
+    expect(screen.getByText("dépassé de 300 km")).toBeTruthy();
   });
 
   it("signale les véhicules immobilisés", async () => {

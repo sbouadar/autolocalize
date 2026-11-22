@@ -148,3 +148,133 @@ export function useUnavailabilityActions(vehicleId: string) {
     remove: (id: string) => api(`/unavailabilities/${encodeURIComponent(id)}`, { method: "DELETE" }).then(refresh),
   };
 }
+
+// ─── Entretien (voir apps/api/src/routes/maintenance.ts) ─────────────────────
+
+export const maintenanceTypeSchema = z.enum(["OIL_CHANGE", "TIRES", "BRAKES", "TIMING_BELT", "SERVICE", "BATTERY", "AIR_CONDITIONING", "OTHER"]);
+export type MaintenanceType = z.infer<typeof maintenanceTypeSchema>;
+
+export const MAINTENANCE_TYPE_LABELS: Record<MaintenanceType, string> = {
+  OIL_CHANGE: "Vidange",
+  TIRES: "Pneus",
+  BRAKES: "Freins",
+  TIMING_BELT: "Courroie",
+  SERVICE: "Révision",
+  BATTERY: "Batterie",
+  AIR_CONDITIONING: "Climatisation",
+  OTHER: "Autre",
+};
+
+export const maintenancePlanSchema = z.object({
+  id: z.string(),
+  vehicleId: z.string(),
+  vehicleName: z.string(),
+  type: maintenanceTypeSchema.catch("OTHER"),
+  label: z.string().nullable(),
+  intervalKm: z.number().nullable(),
+  intervalDays: z.number().nullable(),
+  lastDoneAt: z.string().nullable(),
+  lastDoneKm: z.number().nullable(),
+  currentKm: z.number().nullable(),
+  status: z.enum(["OK", "DUE", "OVERDUE", "UNKNOWN"]).catch("UNKNOWN"),
+  nextKm: z.number().nullable(),
+  kmLeft: z.number().nullable(),
+  nextDate: z.string().nullable(),
+  daysLeft: z.number().nullable(),
+});
+export type MaintenancePlan = z.infer<typeof maintenancePlanSchema>;
+
+export function maintenanceName(p: Pick<MaintenancePlan, "type" | "label">): string {
+  return p.type === "OTHER" && p.label ? p.label : MAINTENANCE_TYPE_LABELS[p.type];
+}
+
+const km = new Intl.NumberFormat("fr-FR");
+
+/** « dans 700 km », « dépassé de 1 200 km », « dans 12 jours »… ; l'échéance la plus pressante en premier. */
+export function maintenanceDelay(p: Pick<MaintenancePlan, "status" | "kmLeft" | "daysLeft">): string {
+  if (p.status === "UNKNOWN") return "à compléter";
+  const parts: string[] = [];
+  if (p.kmLeft != null) parts.push(p.kmLeft < 0 ? `dépassé de ${km.format(-p.kmLeft)} km` : `dans ${km.format(p.kmLeft)} km`);
+  if (p.daysLeft != null) {
+    parts.push(p.daysLeft < 0 ? `en retard de ${-p.daysLeft} jour${p.daysLeft < -1 ? "s" : ""}` : p.daysLeft === 0 ? "aujourd’hui" : `dans ${p.daysLeft} jour${p.daysLeft > 1 ? "s" : ""}`);
+  }
+  return parts.join(" ou ") || "à compléter";
+}
+
+const maintenanceRecordSchema = z.object({
+  id: z.string(),
+  planId: z.string().nullable(),
+  type: maintenanceTypeSchema.catch("OTHER"),
+  label: z.string().nullable(),
+  doneOn: z.string(),
+  km: z.number().nullable(),
+  garage: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+export type MaintenanceRecord = z.infer<typeof maintenanceRecordSchema>;
+
+const MAINTENANCE_KEY = ["maintenance"] as const;
+const plansSchema = z.object({ plans: z.array(maintenancePlanSchema) });
+
+export function useMaintenancePlans(vehicleId: string) {
+  return useQuery({
+    queryKey: [...MAINTENANCE_KEY, "plans", vehicleId],
+    queryFn: () => api(`/vehicles/${encodeURIComponent(vehicleId)}/maintenance-plans`, { schema: plansSchema }),
+    staleTime: 60_000,
+  });
+}
+
+export function useMaintenanceRecords(vehicleId: string) {
+  return useQuery({
+    queryKey: [...MAINTENANCE_KEY, "records", vehicleId],
+    queryFn: () =>
+      api(`/vehicles/${encodeURIComponent(vehicleId)}/maintenance-records`, { schema: z.object({ records: z.array(maintenanceRecordSchema) }) }),
+  });
+}
+
+/** Entretiens à prévoir ou en retard dans toute la flotte (tableau de bord). */
+export function useDueMaintenance() {
+  return useQuery({
+    queryKey: [...MAINTENANCE_KEY, "due"],
+    queryFn: () => api("/maintenance/due", { schema: plansSchema }),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export interface MaintenancePlanInput {
+  type: MaintenanceType;
+  label: string | null;
+  intervalKm: number | null;
+  intervalDays: number | null;
+  lastDoneAt: string | null;
+  lastDoneKm: number | null;
+}
+
+export interface MaintenanceRecordInput {
+  planId?: string;
+  type?: MaintenanceType;
+  label?: string | null;
+  doneOn: string;
+  km: number | null;
+  garage: string | null;
+  notes: string | null;
+}
+
+export function useMaintenanceActions(vehicleId: string) {
+  const queryClient = useQueryClient();
+  // Un entretien avec kilométrage crée aussi un relevé de compteur : la fiche du véhicule est à relire.
+  const refresh = () =>
+    Promise.all([queryClient.invalidateQueries({ queryKey: MAINTENANCE_KEY }), queryClient.invalidateQueries({ queryKey: ["vehicles", vehicleId, "odometer"] })]);
+  const base = `/vehicles/${encodeURIComponent(vehicleId)}`;
+  return {
+    createPlan: useMutation({
+      mutationFn: (body: MaintenancePlanInput) => api(`${base}/maintenance-plans`, { method: "POST", body }),
+      onSuccess: refresh,
+    }),
+    removePlan: (id: string) => api(`/maintenance-plans/${encodeURIComponent(id)}`, { method: "DELETE" }).then(refresh),
+    addRecord: useMutation({
+      mutationFn: (body: MaintenanceRecordInput) => api(`${base}/maintenance-records`, { method: "POST", body }),
+      onSuccess: refresh,
+    }),
+  };
+}

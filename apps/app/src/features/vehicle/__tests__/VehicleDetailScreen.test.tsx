@@ -28,6 +28,7 @@ jest.mock("../EngineCard", () => ({ EngineCard: () => null }));
 jest.mock("../OdometerCard", () => ({ OdometerCard: () => null }));
 jest.mock("../VehicleInfoCard", () => ({ VehicleInfoCard: () => null }));
 jest.mock("../DeadlinesCard", () => ({ DeadlinesCard: () => null }));
+jest.mock("../MaintenanceCard", () => ({ MaintenanceCard: () => null }));
 jest.mock("../UnavailabilityCard", () => ({ UnavailabilityCard: () => null }));
 jest.mock("@/lib/auth", () => ({ useAuth: () => ({ me: null }) }));
 jest.mock("../../map/VehicleMap", () => ({

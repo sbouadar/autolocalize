@@ -51,6 +51,8 @@ model Tenant {
   vehicleDeadlines        VehicleDeadline[]
   customers               Customer[]
   rentals                 Rental[]
+  maintenancePlans        MaintenancePlan[]
+  maintenanceRecords      MaintenanceRecord[]
 
   @@map("tenants")
 }
@@ -194,6 +196,8 @@ model Vehicle {
   vehicleUnavailabilities VehicleUnavailability[]
   vehicleDeadlines        VehicleDeadline[]
   rentals                 Rental[]
+  maintenancePlans        MaintenancePlan[]
+  maintenanceRecords      MaintenanceRecord[]
 
   @@index([tenantId])
   @@map("vehicles")
@@ -296,6 +300,70 @@ enum DeadlineType {
   ROAD_TAX
   REGISTRATION
   OTHER
+}
+
+// ─── Entretien (M4) ───────────────────────────────────────────────────────────
+
+// Entretien périodique d'un véhicule, au kilométrage et/ou à la date (au moins un des deux
+// intervalles). Prochaine échéance = dernier entretien + intervalle, la plus proche des deux.
+model MaintenancePlan {
+  id             String          @id @default(cuid())
+  tenantId       String
+  vehicleId      String
+  type           MaintenanceType
+  label          String?         @db.VarChar(100) // obligatoire si type = OTHER
+  intervalKm     Int?
+  intervalDays   Int?
+  lastDoneAt     DateTime?       @db.Date
+  lastDoneKm     Int?
+  warnBeforeKm   Int             @default(1000)
+  warnBeforeDays Int             @default(15)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  records MaintenanceRecord[]
+
+  @@index([vehicleId])
+  @@index([tenantId])
+  @@map("maintenance_plans")
+}
+
+enum MaintenanceType {
+  OIL_CHANGE
+  TIRES
+  BRAKES
+  TIMING_BELT
+  SERVICE
+  BATTERY
+  AIR_CONDITIONING
+  OTHER
+}
+
+// Entretien réalisé. Rattaché à un plan, il en met à jour la date et le kilométrage de référence.
+model MaintenanceRecord {
+  id        String          @id @default(cuid())
+  tenantId  String
+  vehicleId String
+  planId    String?
+  type      MaintenanceType
+  label     String?         @db.VarChar(100)
+  doneOn    DateTime        @db.Date
+  km        Int?
+  garage    String?         @db.VarChar(191)
+  notes     String?         @db.Text
+  createdBy String
+  createdAt DateTime        @default(now())
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  plan    MaintenancePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId, doneOn])
+  @@index([tenantId])
+  @@map("maintenance_records")
 }
 
 // ─── Locataires et réservations (M5, module location) ────────────────────────

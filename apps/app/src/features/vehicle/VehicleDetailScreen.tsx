@@ -20,6 +20,7 @@ import { hasPosition, lastSeen, useRoute, useTrips, useVehicle, vehicleLabel, ve
 import { VehicleMap } from "../map/VehicleMap";
 import { DeadlinesCard } from "./DeadlinesCard";
 import { EngineCard } from "./EngineCard";
+import { MaintenanceCard } from "./MaintenanceCard";
 import { OdometerCard } from "./OdometerCard";
 import { ReplayControls } from "./ReplayControls";
 import { TripList } from "./TripList";
@@ -220,6 +221,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
 
       <Text style={styles.section}>Gestion du véhicule</Text>
       <UnavailabilityCard vehicleId={vehicle.id} canEdit={canAddReading} />
+      <MaintenanceCard vehicleId={vehicle.id} canEdit={canEdit} canRecord={canAddReading} />
       <DeadlinesCard vehicleId={vehicle.id} canEdit={canEdit} />
       <VehicleInfoCard vehicle={vehicle} canEdit={canEdit} />
     </ScrollView>
