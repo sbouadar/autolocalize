@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import PDFDocument from "pdfkit";
+import { CAR_PATHS, DAMAGE_COLORS, DAMAGE_LABELS, DIAGRAM_HEIGHT, DIAGRAM_WIDTH, newDamages, type Damage } from "./car-diagram.js";
 import { LOGO_FILE, LOGO_URL_PREFIX, logoDir } from "./logos.js";
 
 // Contrat de location et rapport de retour en PDF (français uniquement). Polices standard du PDF
@@ -38,6 +39,8 @@ export interface ContractData {
   pickedUpAt: Date;
   odometerOutKm: number;
   fuelOut: number;
+  /** Impacts relevés au départ sur le schéma du véhicule. */
+  damagesOut: Damage[];
   price: string | null;
   deposit: string | null;
   terms: string | null;
@@ -56,6 +59,8 @@ export interface ReturnReportData {
   odometerInKm: number | null;
   fuelOut: number | null;
   fuelIn: number | null;
+  damagesOut: Damage[];
+  damagesIn: Damage[];
   gpsDistanceKm: number | null;
   /** Photos de retour (JPEG) et leur légende. */
   photos: { bytes: Buffer; caption: string | null }[];
@@ -74,9 +79,11 @@ function formatter(timeZone: string, withTime: boolean) {
 /** Les polices standard n'ont pas les espaces fines insécables produites par Intl : espaces simples. */
 const plain = (s: string) => s.replace(/[\u202f\u00a0]/g, " ").replace(/^1 /, "1er ");
 const dateOnly = (d: Date) => plain(new Intl.DateTimeFormat("fr-FR", { timeZone: "UTC", dateStyle: "long" }).format(d));
+/** Espaces fines des nombres (« 1 200,50 ») : espaces simples, sans la règle « 1er » des dates. */
+const spaces = (s: string) => s.replace(/[\u202f\u00a0]/g, " ");
 const money = (amount: string | null, currency: string) =>
-  amount == null ? "—" : `${plain(new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2 }).format(Number(amount)))} ${CURRENCY_LABEL[currency] ?? currency}`;
-const km = (n: number | null) => (n == null ? "—" : `${plain(new Intl.NumberFormat("fr-FR").format(n))} km`);
+  amount == null ? "—" : `${spaces(new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2 }).format(Number(amount)))} ${CURRENCY_LABEL[currency] ?? currency}`;
+const km = (n: number | null) => (n == null ? "—" : `${spaces(new Intl.NumberFormat("fr-FR").format(n))} km`);
 const fuel = (n: number | null) => (n == null ? "—" : `${n}/8`);
 
 /** Logo du client, si c'est un PNG ou un JPEG stocké par l'API (le PDF ne gère pas le WebP). */
@@ -127,6 +134,62 @@ function header(doc: Doc, tenant: ContractData["tenant"], logo: Buffer | null, t
   doc.font("Helvetica-Bold").fontSize(18).fillColor(INK).text(title);
   doc.font("Helvetica").fontSize(10).fillColor(MUTED).text(subtitle);
   doc.moveDown(0.8);
+}
+
+/** Schéma du véhicule (largeur `width`) avec ses impacts numérotés ; `fresh` : impacts nouveaux, cerclés. */
+function drawDiagram(doc: Doc, x: number, y: number, width: number, damages: Damage[], fresh: Set<number> = new Set()) {
+  const scale = width / DIAGRAM_WIDTH;
+  doc.save();
+  doc.translate(x, y).scale(scale);
+  for (const p of CAR_PATHS) {
+    doc.path(p.d).lineWidth(p.width).lineJoin("round").lineCap("round");
+    if (p.fill) doc.fillAndStroke(p.fill, INK);
+    else doc.stroke(INK);
+  }
+  doc.restore();
+  doc.font("Helvetica").fontSize(7).fillColor(MUTED);
+  doc.text("AVANT", x, y - 10, { width, align: "center" });
+  doc.text("ARRIÈRE", x, y + DIAGRAM_HEIGHT * scale + 3, { width, align: "center" });
+  const r = 7;
+  damages.forEach((d, i) => {
+    const cx = x + d.x * width;
+    const cy = y + d.y * DIAGRAM_HEIGHT * scale;
+    if (fresh.has(i)) doc.circle(cx, cy, r + 3).lineWidth(1.5).stroke(DAMAGE_COLORS[d.type]);
+    doc.circle(cx, cy, r).fill(DAMAGE_COLORS[d.type]);
+    doc.font("Helvetica-Bold").fontSize(7).fillColor("#FFFFFF").text(String(i + 1), cx - r, cy - 3.5, { width: 2 * r, align: "center" });
+  });
+}
+
+/** Jauge de carburant en huitièmes, avec son libellé. */
+function drawFuelGauge(doc: Doc, x: number, y: number, width: number, level: number | null, title: string) {
+  doc.font("Helvetica-Bold").fontSize(9).fillColor(INK).text(`${title} : ${level == null ? "non relevé" : `${level}/8`}`, x, y, { width });
+  const top = y + 14;
+  const cell = width / 8;
+  for (let i = 0; i < 8; i++) {
+    doc.rect(x + i * cell + 1, top, cell - 2, 12);
+    if (level != null && i < level) doc.fillAndStroke(INK, INK);
+    else doc.lineWidth(0.75).stroke(LINE);
+  }
+  doc.font("Helvetica").fontSize(7).fillColor(MUTED);
+  doc.text("Vide", x, top + 15, { width, align: "left" });
+  doc.text("Plein", x, top + 15, { width, align: "right" });
+}
+
+/** Légende des impacts : « 1. Rayure — portière avant gauche ». */
+function damageLegend(doc: Doc, x: number, y: number, width: number, damages: Damage[], fresh: Set<number> = new Set()) {
+  doc.x = x;
+  doc.y = y;
+  if (damages.length === 0) {
+    doc.font("Helvetica").fontSize(9).fillColor(MUTED).text("Aucun impact relevé.", x, y, { width });
+    return;
+  }
+  damages.forEach((d, i) => {
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor(INK)
+      .text(`${i + 1}. ${DAMAGE_LABELS[d.type]}${d.note ? ` : ${d.note}` : ""}${fresh.has(i) ? " (nouveau)" : ""}`, x, doc.y, { width });
+  });
 }
 
 function section(doc: Doc, title: string) {
@@ -198,6 +261,22 @@ export async function generateContractPdf(data: ContractData): Promise<Buffer> {
       ["Caution", money(data.deposit, data.tenant.currency)],
     ]);
 
+    // État des lieux : schéma et impacts à gauche, carburant et légende à droite (≈ 250 points).
+    if (doc.y + 290 > doc.page.height - MARGIN) doc.addPage();
+    section(doc, "État des lieux au départ");
+    {
+      const top = doc.y + 14;
+      const diagramWidth = 115;
+      drawDiagram(doc, MARGIN, top, diagramWidth, data.damagesOut);
+      const right = MARGIN + diagramWidth + 30;
+      const rightWidth = doc.page.width - MARGIN - right;
+      drawFuelGauge(doc, right, top, Math.min(rightWidth, 200), data.fuelOut, "Carburant");
+      doc.font("Helvetica-Bold").fontSize(9).fillColor(INK).text("Impacts relevés", right, top + 54, { width: rightWidth });
+      damageLegend(doc, right, top + 68, rightWidth, data.damagesOut);
+      doc.y = Math.max(doc.y, top + DIAGRAM_HEIGHT * (diagramWidth / DIAGRAM_WIDTH) + 14);
+      doc.x = MARGIN;
+    }
+
     section(doc, "Conditions générales");
     doc
       .font("Helvetica")
@@ -253,6 +332,36 @@ export async function generateReturnReportPdf(data: ReturnReportData): Promise<B
       ["Carburant au départ", fuel(data.fuelOut)],
       ["Carburant au retour", fuel(data.fuelIn)],
     ]);
+
+    // État des lieux : départ et retour côte à côte ; impacts nouveaux cerclés et signalés.
+    if (doc.y + 330 > doc.page.height - MARGIN) doc.addPage();
+    section(doc, "État des lieux");
+    {
+      const fresh = newDamages(data.damagesOut, data.damagesIn);
+      const colWidth = (doc.page.width - 2 * MARGIN - 30) / 2;
+      const diagramWidth = 100;
+      const top = doc.y + 16;
+      let bottom = top;
+      for (const [i, [title, damages, level, marks]] of ([
+        ["Au départ", data.damagesOut, data.fuelOut, new Set<number>()],
+        ["Au retour", data.damagesIn, data.fuelIn, fresh],
+      ] as const).entries()) {
+        const x = MARGIN + i * (colWidth + 30);
+        doc.font("Helvetica-Bold").fontSize(10).fillColor(INK).text(title, x, top - 14, { width: colWidth });
+        drawDiagram(doc, x, top + 12, diagramWidth, damages, marks);
+        const side = x + diagramWidth + 14;
+        const sideWidth = colWidth - diagramWidth - 14;
+        drawFuelGauge(doc, side, top + 12, sideWidth, level, "Carburant");
+        damageLegend(doc, side, top + 66, sideWidth, damages, marks);
+        bottom = Math.max(bottom, doc.y, top + 12 + DIAGRAM_HEIGHT * (diagramWidth / DIAGRAM_WIDTH) + 14);
+      }
+      doc.y = bottom;
+      doc.x = MARGIN;
+      if (fresh.size > 0) {
+        doc.moveDown(0.4);
+        doc.font("Helvetica-Bold").fontSize(9).fillColor("#B42318").text(`${fresh.size} impact${fresh.size > 1 ? "s" : ""} relevé${fresh.size > 1 ? "s" : ""} au retour et absent${fresh.size > 1 ? "s" : ""} au départ.`, MARGIN);
+      }
+    }
 
     if (data.photos.length > 0) {
       section(doc, `Photos au retour (${data.photos.length})`);

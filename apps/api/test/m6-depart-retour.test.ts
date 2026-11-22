@@ -71,6 +71,32 @@ describe("M6 : départ, retour, photos, contrat et alertes de location", () => {
     call(ctx.app, "POST", `/api/rentals/${rentalId}/return`, headers, { odometerKm: 45_320, fuelLevel: 4, ...body });
 
   describe("Départ", () => {
+    it("enregistre l'état des lieux au départ et au retour, et valide les impacts", async () => {
+      const out = [
+        { x: 0.2, y: 0.12, type: "SCRATCH", note: " pare-chocs avant " },
+        { x: 0.83, y: 0.5, type: "DENT" },
+      ];
+      for (const damages of [[{ x: 1.2, y: 0.5, type: "DENT" }], [{ x: 0.5, y: 0.5, type: "ROUILLE" }], [{ x: 0.5, y: 0.5, type: "DENT", note: "x".repeat(101) }], Array.from({ length: 31 }, () => ({ x: 0.5, y: 0.5, type: "DENT" }))]) {
+        assert.equal((await pickup({ damages })).status, 400);
+      }
+      const res = await pickup({ damages: out, at: at(-0.5) });
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.json.rental.damagesOut, [
+        { x: 0.2, y: 0.12, type: "SCRATCH", note: "pare-chocs avant" },
+        { x: 0.83, y: 0.5, type: "DENT", note: null },
+      ]);
+      assert.deepEqual(res.json.rental.damagesIn, []);
+      const back = await giveBack({ damages: [...out, { x: 0.3, y: 0.9, type: "BROKEN", note: "feu arrière" }] });
+      assert.equal(back.json.rental.damagesIn.length, 3);
+      const read = await call(ctx.app, "GET", `/api/rentals/${rentalId}`, viewer);
+      assert.equal(read.json.rental.damagesOut.length, 2);
+      assert.equal(read.json.rental.damagesIn[2].note, "feu arrière");
+      // Le rapport de retour se génère avec les deux états des lieux.
+      const report = await download(`/api/rentals/${rentalId}/return-report.pdf`, viewer);
+      assert.equal(report.status, 200);
+      assert.equal(report.bytes.subarray(0, 5).toString(), "%PDF-");
+    });
+
     it("enregistre le départ, le relevé de compteur et fige un contrat PDF", async () => {
       const res = await pickup();
       assert.equal(res.status, 200);

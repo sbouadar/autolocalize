@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { api } from "./api";
+import { damageSchema, type Damage } from "./car-diagram";
 import { currencySchema, type Currency } from "./types";
 
 const nullableString = z.string().nullable();
@@ -116,6 +117,9 @@ export const rentalSchema = z.object({
   odometerInKm: z.number().nullable(),
   fuelOut: z.number().nullable(),
   fuelIn: z.number().nullable(),
+  /** État des lieux : impacts marqués sur le schéma au départ et au retour. */
+  damagesOut: z.array(damageSchema).optional().default([]),
+  damagesIn: z.array(damageSchema).optional().default([]),
   gpsDistanceKm: z.number().nullable(),
   /** Montants en chaînes (« 350.00 »). */
   price: nullableString,
@@ -273,6 +277,8 @@ export interface HandoverInput {
   odometerKm: number;
   /** Carburant en huitièmes de réservoir (0 à 8). */
   fuelLevel: number;
+  /** Impacts relevés sur le schéma du véhicule. */
+  damages?: Damage[];
   /** Date réelle (instant ISO) ; absente : maintenant. */
   at?: string;
 }

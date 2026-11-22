@@ -17,6 +17,7 @@ import { useZones } from "@/lib/zones";
 import { colors, fonts, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { HandoverForm } from "./HandoverForm";
+import { DamageReport } from "./DamageReport";
 import { RentalDocuments } from "./RentalDocuments";
 import { RentalPhotos } from "./RentalPhotos";
 import { RentalStatusBadge } from "./RentalRow";
@@ -195,6 +196,7 @@ export function RentalDetailScreen({ id }: { id: string }) {
         <Row label="Téléphone" value={r.customerPhone} />
       </Card>
 
+      <DamageReport rental={r} />
       <RentalDocuments rental={r} />
       <RentalPhotos rentalId={r.id} phase="PICKUP" canAdd={canWrite && open} canDelete={isAdmin} />
       {r.status === "ONGOING" || r.status === "COMPLETED" ? (

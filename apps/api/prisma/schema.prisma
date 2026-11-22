@@ -556,6 +556,9 @@ model Rental {
   odometerInKm   Int?
   fuelOut        Int? // niveau en huitièmes (0 à 8)
   fuelIn         Int?
+  // État des lieux : impacts marqués sur le schéma du véhicule ([{ x, y, type, note }], x et y de 0 à 1).
+  damagesOut     Json?
+  damagesIn      Json?
   gpsDistanceKm  Float? // distance GPS entre départ et retour, calculée au retour
   price          Decimal?     @db.Decimal(12, 2) // saisi à la main, dans la devise du client
   deposit        Decimal?     @db.Decimal(12, 2)

@@ -33,6 +33,8 @@ const rental = (overrides: Partial<Rental>): Rental => ({
   odometerInKm: null,
   fuelOut: null,
   fuelIn: null,
+  damagesOut: [],
+  damagesIn: [],
   gpsDistanceKm: null,
   price: null,
   deposit: null,

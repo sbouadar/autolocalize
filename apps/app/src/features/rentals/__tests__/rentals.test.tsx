@@ -106,6 +106,8 @@ const rental = (overrides: Partial<Rental>): Rental => ({
   odometerInKm: null,
   fuelOut: null,
   fuelIn: null,
+  damagesOut: [],
+  damagesIn: [],
   gpsDistanceKm: null,
   price: "1200.50",
   deposit: null,
@@ -325,7 +327,7 @@ describe("Départ, retour et photos", () => {
     await fireEvent.changeText(screen.getByLabelText("Compteur au départ (km)"), "45000");
     await fireEvent.press(screen.getByRole("radio", { name: "3/4" }));
     await fireEvent.press(screen.getByRole("button", { name: "Valider le départ" }));
-    expect(mockPickup).toHaveBeenCalledWith({ id: "r1", body: { odometerKm: 45_000, fuelLevel: 6, at: new Date(2026, 9, 6, 9, 0).toISOString() } });
+    expect(mockPickup).toHaveBeenCalledWith({ id: "r1", body: { odometerKm: 45_000, fuelLevel: 6, damages: [], at: new Date(2026, 9, 6, 9, 0).toISOString() } });
     await view.unmount();
 
     const pickedUpAt = new Date(2026, 9, 6, 9, 0).toISOString();
@@ -345,7 +347,7 @@ describe("Départ, retour et photos", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Jour du retour" }));
     await fireEvent.press(screen.getByRole("button", { name: "9 octobre 2026" }));
     await fireEvent.press(screen.getByRole("button", { name: "Valider le retour" }));
-    expect(mockGiveBack).toHaveBeenCalledWith({ id: "r2", body: { odometerKm: 45_900, fuelLevel: 4, at: end.toISOString() } });
+    expect(mockGiveBack).toHaveBeenCalledWith({ id: "r2", body: { odometerKm: 45_900, fuelLevel: 4, damages: [], at: end.toISOString() } });
   });
 
   it("enregistre le départ avec le compteur et le carburant", async () => {
@@ -358,7 +360,53 @@ describe("Départ, retour et photos", () => {
     expect(screen.getByText("Indiquez le niveau de carburant.")).toBeTruthy();
     await fireEvent.press(screen.getByRole("radio", { name: "3/4" }));
     await fireEvent.press(screen.getByRole("button", { name: "Valider le départ" }));
-    expect(mockPickup).toHaveBeenCalledWith({ id: "r1", body: { odometerKm: 45_000, fuelLevel: 6 } });
+    expect(mockPickup).toHaveBeenCalledWith({ id: "r1", body: { odometerKm: 45_000, fuelLevel: 6, damages: [] } });
+  });
+
+  it("relève les impacts sur le schéma au départ et les envoie avec leur note", async () => {
+    await render(<RentalDetailScreen id="r1" />);
+    await fireEvent.press(screen.getByRole("button", { name: "Départ du véhicule" }));
+    await fireEvent.changeText(screen.getByLabelText("Compteur au départ (km)"), "45000");
+    await fireEvent.press(screen.getByRole("radio", { name: "3/4" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Choc / bosse" }));
+    // Schéma de 170 × 340 : appui au quart de la largeur, à la moitié de la hauteur.
+    await fireEvent.press(screen.getByRole("button", { name: "Schéma du véhicule : touchez l’endroit d’un impact" }), { nativeEvent: { locationX: 42.5, locationY: 170 } });
+    await fireEvent.press(screen.getByRole("radio", { name: "Rayure" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Schéma du véhicule : touchez l’endroit d’un impact" }), { nativeEvent: { locationX: 300, locationY: -5 } });
+    await fireEvent.changeText(screen.getByLabelText("1. Choc / bosse"), "portière avant gauche");
+    await fireEvent.press(screen.getByRole("button", { name: "Retirer l’impact 2" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le départ" }));
+    expect(mockPickup).toHaveBeenCalledWith({
+      id: "r1",
+      body: { odometerKm: 45_000, fuelLevel: 6, damages: [{ x: 0.25, y: 0.5, type: "DENT", note: "portière avant gauche" }] },
+    });
+  });
+
+  it("repart des impacts du départ au retour, et signale les nouveaux dans la fiche", async () => {
+    const out = [{ x: 0.2, y: 0.1, type: "SCRATCH" as const, note: "pare-chocs" }];
+    mockRentals = [rental({ id: "r2", status: "ONGOING", pickedUpAt: "2026-12-01T09:05:00Z", odometerOutKm: 45_000, fuelOut: 6, damagesOut: out })];
+    const view = await render(<RentalDetailScreen id="r2" />);
+    expect(screen.getByText("1. Rayure : pare-chocs")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Retour du véhicule" }));
+    expect(screen.getByLabelText("1. Rayure").props.value).toBe("pare-chocs");
+    await view.unmount();
+
+    mockRentals = [
+      rental({
+        id: "r3",
+        status: "COMPLETED",
+        pickedUpAt: "2026-12-01T09:05:00Z",
+        returnedAt: "2026-12-03T08:00:00Z",
+        fuelOut: 6,
+        fuelIn: 2,
+        damagesOut: out,
+        damagesIn: [...out, { x: 0.8, y: 0.9, type: "DENT", note: null }],
+      }),
+    ];
+    await render(<RentalDetailScreen id="r3" />);
+    expect(screen.getByText("2. Choc / bosse (nouveau)")).toBeTruthy();
+    expect(screen.getByText("1 impact relevé au retour et absent au départ.")).toBeTruthy();
+    expect(screen.getByText("Carburant : 1/4")).toBeTruthy();
   });
 
   it("refuse un compteur de retour inférieur à celui du départ", async () => {
@@ -373,7 +421,7 @@ describe("Départ, retour et photos", () => {
 
     await fireEvent.changeText(screen.getByLabelText("Compteur au retour (km)"), "45320");
     await fireEvent.press(screen.getByRole("button", { name: "Valider le retour" }));
-    expect(mockGiveBack).toHaveBeenCalledWith({ id: "r2", body: { odometerKm: 45_320, fuelLevel: 4 } });
+    expect(mockGiveBack).toHaveBeenCalledWith({ id: "r2", body: { odometerKm: 45_320, fuelLevel: 4, damages: [] } });
   });
 
   it("ajoute une photo au départ ; seule l'admin peut en supprimer", async () => {

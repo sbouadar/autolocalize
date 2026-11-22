@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { audit } from "../lib/audit.js";
+import { damagesSchema, readDamages } from "../lib/car-diagram.js";
 import { generateContractPdf, generateReturnReportPdf } from "../lib/contract-pdf.js";
 import { decryptField } from "../lib/crypto.js";
 import { gpsDistanceKm } from "../lib/odometer.js";
@@ -34,6 +35,8 @@ const handoverBody = z
     odometerKm: z.number().int().min(0).max(KM_MAX),
     /** Niveau de carburant en huitièmes de réservoir. */
     fuelLevel: z.number().int().min(0).max(8),
+    /** Impacts relevés sur le schéma du véhicule (état des lieux). */
+    damages: damagesSchema.optional(),
     /** Par défaut maintenant ; jamais dans le futur. */
     at: dateTime.refine((d) => d.getTime() <= Date.now() + 60_000, "La date ne peut pas être dans le futur").optional(),
   })
@@ -141,7 +144,7 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
     if (rental.status !== "RESERVED") return conflict(reply, "RENTAL_NOT_RESERVED", "Le départ n'est possible que pour une réservation");
     if (!rental.vehicleId) return conflict(reply, "RENTAL_WITHOUT_VEHICLE", "Le véhicule de cette location a été retiré");
     const tenantId = tenantOf(request);
-    const { odometerKm, fuelLevel } = parsed.data;
+    const { odometerKm, fuelLevel, damages = [] } = parsed.data;
     const pickedUpAt = parsed.data.at ?? new Date();
 
     const earlier = await higherEarlierReading(rental.vehicleId, odometerKm, pickedUpAt);
@@ -181,6 +184,7 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
       pickedUpAt,
       odometerOutKm: odometerKm,
       fuelOut: fuelLevel,
+      damagesOut: damages,
       price: rental.price?.toFixed(2) ?? null,
       deposit: rental.deposit?.toFixed(2) ?? null,
       terms: tenant.rentalTerms,
@@ -193,7 +197,7 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
         // Deux départs simultanés : un seul passe de RESERVED à ONGOING.
         const moved = await tx.rental.updateMany({
           where: { id: rental.id, status: "RESERVED" },
-          data: { status: "ONGOING", pickedUpAt, odometerOutKm: odometerKm, fuelOut: fuelLevel },
+          data: { status: "ONGOING", pickedUpAt, odometerOutKm: odometerKm, fuelOut: fuelLevel, damagesOut: damages },
         });
         if (moved.count !== 1) return null;
         await tx.odometerReading.create({
@@ -212,7 +216,7 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const zoneWatched = rental.allowedZoneId ? await ensureZoneWatch(request, rental.allowedZoneId, rental.vehicleId) : null;
-    await audit(request, "rental.pickup", { tenantId, targetId: rental.id, details: { odometerKm, fuelLevel, pickedUpAt } });
+    await audit(request, "rental.pickup", { tenantId, targetId: rental.id, details: { odometerKm, fuelLevel, pickedUpAt, damages: damages.length } });
     return { rental: publicRental(updated), contract: true, zoneWatched };
   });
 
@@ -225,7 +229,7 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
     if (!parsed.success) return reply.badRequest(firstIssue(parsed.error));
     if (rental.status !== "ONGOING") return conflict(reply, "RENTAL_NOT_ONGOING", "Le retour n'est possible que pour une location en cours");
     const tenantId = tenantOf(request);
-    const { odometerKm, fuelLevel } = parsed.data;
+    const { odometerKm, fuelLevel, damages = [] } = parsed.data;
     const returnedAt = parsed.data.at ?? new Date();
     if (rental.pickedUpAt && returnedAt <= rental.pickedUpAt) return reply.badRequest("Le retour doit être après le départ");
     if (rental.odometerOutKm != null && odometerKm < rental.odometerOutKm) {
@@ -241,7 +245,7 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
     const updated = await prisma.$transaction(async (tx) => {
       const moved = await tx.rental.updateMany({
         where: { id: rental.id, status: "ONGOING" },
-        data: { status: "COMPLETED", returnedAt, odometerInKm: odometerKm, fuelIn: fuelLevel, gpsDistanceKm: distance },
+        data: { status: "COMPLETED", returnedAt, odometerInKm: odometerKm, fuelIn: fuelLevel, damagesIn: damages, gpsDistanceKm: distance },
       });
       if (moved.count !== 1) return null;
       if (rental.vehicleId) {
@@ -253,7 +257,7 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
     });
     if (!updated) return conflict(reply, "RENTAL_NOT_ONGOING", "Le retour de cette location vient d'être enregistré");
 
-    await audit(request, "rental.return", { tenantId, targetId: rental.id, details: { odometerKm, fuelLevel, returnedAt, gpsDistanceKm: distance } });
+    await audit(request, "rental.return", { tenantId, targetId: rental.id, details: { odometerKm, fuelLevel, returnedAt, gpsDistanceKm: distance, damages: damages.length } });
     return { rental: publicRental(updated) };
   });
 
@@ -375,6 +379,8 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
       odometerInKm: rental.odometerInKm,
       fuelOut: rental.fuelOut,
       fuelIn: rental.fuelIn,
+      damagesOut: readDamages(rental.damagesOut),
+      damagesIn: readDamages(rental.damagesIn),
       gpsDistanceKm: rental.gpsDistanceKm,
       photos: loaded.filter((p) => p !== null),
     });

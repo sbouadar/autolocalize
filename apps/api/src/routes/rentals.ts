@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { audit } from "../lib/audit.js";
+import { readDamages } from "../lib/car-diagram.js";
 import { prisma } from "../lib/prisma.js";
 import {
   ACTIVE_RENTAL_STATUSES,
@@ -81,6 +82,8 @@ export const rentalSelect = {
   odometerInKm: true,
   fuelOut: true,
   fuelIn: true,
+  damagesOut: true,
+  damagesIn: true,
   gpsDistanceKm: true,
   price: true,
   deposit: true,
@@ -96,9 +99,11 @@ export const rentalSelect = {
 type RentalRow = Awaited<ReturnType<typeof prisma.rental.findFirstOrThrow<{ select: typeof rentalSelect }>>>;
 
 export function publicRental(row: RentalRow, now = new Date()) {
-  const { customer, tenant, price, deposit, ...rest } = row;
+  const { customer, tenant, price, deposit, damagesOut, damagesIn, ...rest } = row;
   return {
     ...rest,
+    damagesOut: readDamages(damagesOut),
+    damagesIn: readDamages(damagesIn),
     customerName: customer.name,
     customerPhone: customer.phone,
     // Montants en chaînes (« 350.00 ») pour ne rien perdre en virgule flottante.
