@@ -33,6 +33,8 @@ export interface ContractData {
   vehicle: { name: string; plate: string | null; brand: string | null; model: string | null; year: number | null; vin: string | null; color: string | null };
   startAt: Date;
   endAt: Date;
+  pickupLocation: string | null;
+  returnLocation: string | null;
   pickedUpAt: Date;
   odometerOutKm: number;
   fuelOut: number;
@@ -187,6 +189,8 @@ export async function generateContractPdf(data: ContractData): Promise<Buffer> {
     rows(doc, [
       ["Départ prévu", dateTime(data.startAt)],
       ["Retour prévu", dateTime(data.endAt)],
+      ["Lieu de prise en charge", data.pickupLocation],
+      ["Lieu de dépôt", data.returnLocation],
       ["Remise du véhicule", dateTime(data.pickedUpAt)],
       ["Compteur au départ", km(data.odometerOutKm)],
       ["Carburant au départ", fuel(data.fuelOut)],

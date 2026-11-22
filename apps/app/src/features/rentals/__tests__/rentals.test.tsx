@@ -109,6 +109,8 @@ const rental = (overrides: Partial<Rental>): Rental => ({
   deposit: null,
   currency: "MAD",
   allowedZoneId: null,
+  pickupLocation: null,
+  returnLocation: null,
   notes: null,
   late: false,
   ...overrides,
@@ -136,8 +138,9 @@ beforeEach(() => {
   mockRentals = [rental({}), rental({ id: "r2", status: "ONGOING", late: true, vehicleName: "Master" })];
   mockCustomers = [karim];
   mockAvailability = [
-    { id: "v1", name: "Clio", plate: "1-A-1", available: true, reason: null },
-    { id: "v2", name: "Master", plate: null, available: false, reason: "RENTED" },
+    { id: "v1", name: "Clio", plate: "1-A-1", available: true, reason: null, unavailabilityReason: null },
+    { id: "v2", name: "Master", plate: null, available: false, reason: "RENTED", unavailabilityReason: null },
+    { id: "v3", name: "Kangoo", plate: null, available: false, reason: "UNAVAILABLE", unavailabilityReason: "ACCIDENT" },
   ];
   for (const m of [mockPush, mockReplace, mockConfirm, mockCreateRental, mockCancel, mockReveal, mockAnonymize, mockPickup, mockGiveBack, mockUpload, mockRemovePhoto]) m.mockReset();
   mockPhotos = [];
@@ -174,34 +177,87 @@ describe("RentalsScreen", () => {
 });
 
 describe("NewRentalScreen", () => {
-  it("enchaîne période, véhicule libre, locataire et prix", async () => {
+  // Calendrier figé au 22 novembre 2026 : le départ est préréglé sur ce jour.
+  beforeEach(() => jest.useFakeTimers({ doNotFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "setImmediate", "nextTick", "queueMicrotask"], now: new Date(2026, 10, 22, 10, 0) }));
+  afterEach(() => jest.useRealTimers());
+
+  const pickDay = async (field: string, day: string) => {
+    await fireEvent.press(screen.getByRole("button", { name: field }));
+    await fireEvent.press(screen.getByRole("button", { name: day }));
+  };
+  const pickOption = async (field: string, option: string) => {
+    await fireEvent.press(screen.getByRole("button", { name: field }));
+    await fireEvent.press(screen.getByRole("radio", { name: option }));
+  };
+
+  it("enchaîne période, lieux, véhicule libre, locataire et prix", async () => {
     mockCreateRental.mockResolvedValue({ rental: rental({ id: "r9" }) });
     await render(<NewRentalScreen />);
-    await fireEvent.changeText(screen.getByLabelText("Départ (JJ/MM/AAAA)"), "01/12/2026");
-    await fireEvent.changeText(screen.getByLabelText("Retour (JJ/MM/AAAA)"), "30/11/2026");
+    expect(screen.getByRole("button", { name: "Date de départ" }).props.accessibilityValue).toEqual({ text: "22/11/2026" });
+    await fireEvent.press(screen.getByRole("button", { name: "Voir les véhicules libres" }));
+    expect(screen.getByText("Choisissez la date de départ et la date de retour.")).toBeTruthy();
+
+    // Le calendrier du retour s'ouvre sur le mois du départ ; les jours antérieurs y sont inactifs.
+    await fireEvent.press(screen.getByRole("button", { name: "Date de retour" }));
+    expect(screen.getByRole("button", { name: "21 novembre 2026" }).props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(screen.getByRole("button", { name: "22 novembre 2026" }));
+    await pickOption("Heure de retour", "08:30");
     await fireEvent.press(screen.getByRole("button", { name: "Voir les véhicules libres" }));
     expect(screen.getByText("Le retour doit être après le départ.")).toBeTruthy();
 
-    await fireEvent.changeText(screen.getByLabelText("Retour (JJ/MM/AAAA)"), "03/12/2026");
+    await pickDay("Date de retour", "24 novembre 2026");
+    await pickOption("Heure de retour", "09:00");
+    await pickOption("Lieu de prise en charge", "CASABLANCA AEROPORT");
+    await pickOption("Lieu de dépôt", "Autre (saisie libre)");
+    await fireEvent.changeText(screen.getByLabelText("Lieu de dépôt : précisez"), " Hôtel Atlas, Rabat ");
     await fireEvent.press(screen.getByRole("button", { name: "Voir les véhicules libres" }));
     expect(mockAvailabilityArgs.every(Boolean)).toBe(true);
     // Le véhicule déjà loué n'est pas sélectionnable.
     expect(screen.getByRole("radio", { name: "Master, déjà loué" }).props.accessibilityState.disabled).toBe(true);
+    // Un véhicule immobilisé affiche son motif.
+    expect(screen.getByRole("radio", { name: "Kangoo, indisponible : accident" }).props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByText("Indisponible : accident sur cette période")).toBeTruthy();
     await fireEvent.press(screen.getByRole("radio", { name: "Clio" }));
     await fireEvent.press(screen.getByRole("button", { name: "Choisir Karim Alaoui" }));
     await fireEvent.changeText(screen.getByLabelText("Prix (MAD)"), "1 200,50");
     await fireEvent.press(screen.getByRole("button", { name: "Créer la réservation" }));
 
     const sent = mockCreateRental.mock.calls[0]![0];
-    expect(sent).toMatchObject({ vehicleId: "v1", customerId: "c1", price: 1200.5, deposit: null, notes: null });
-    expect(Date.parse(sent.endAt) - Date.parse(sent.startAt)).toBe(2 * 86_400_000);
+    expect(sent).toMatchObject({
+      vehicleId: "v1",
+      customerId: "c1",
+      price: 1200.5,
+      deposit: null,
+      notes: null,
+      pickupLocation: "CASABLANCA AEROPORT",
+      returnLocation: "Hôtel Atlas, Rabat",
+    });
+    expect(sent.startAt).toBe(new Date(2026, 10, 22, 9, 0).toISOString());
+    expect(sent.endAt).toBe(new Date(2026, 10, 24, 9, 0).toISOString());
     expect(mockReplace).toHaveBeenCalledWith({ pathname: "/rentals/[id]", params: { id: "r9" } });
+  });
+
+  it("accepte une ancienne réservation, dans un mois passé", async () => {
+    mockCreateRental.mockResolvedValue({ rental: rental({ id: "r9" }) });
+    await render(<NewRentalScreen />);
+    await fireEvent.press(screen.getByRole("button", { name: "Date de départ" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Mois précédent" }));
+    await fireEvent.press(screen.getByRole("button", { name: "5 octobre 2026" }));
+    await pickDay("Date de retour", "9 octobre 2026");
+    await fireEvent.press(screen.getByRole("button", { name: "Voir les véhicules libres" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Clio" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Choisir Karim Alaoui" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Créer la réservation" }));
+    const sent = mockCreateRental.mock.calls[0]![0];
+    expect(sent.startAt).toBe(new Date(2026, 9, 5, 9, 0).toISOString());
+    expect(sent.endAt).toBe(new Date(2026, 9, 9, 9, 0).toISOString());
+    expect(sent).toMatchObject({ pickupLocation: null, returnLocation: null });
   });
 
   it("affiche le refus quand le véhicule vient d'être réservé par quelqu'un d'autre", async () => {
     mockCreateRental.mockRejectedValue(new ApiError(409, "Ce véhicule est déjà réservé sur cette période", "RENTAL_OVERLAP"));
     await render(<NewRentalScreen />);
-    await fireEvent.changeText(screen.getByLabelText("Retour (JJ/MM/AAAA)"), "31/12/2030");
+    await pickDay("Date de retour", "30 novembre 2026");
     await fireEvent.press(screen.getByRole("button", { name: "Voir les véhicules libres" }));
     await fireEvent.press(screen.getByRole("radio", { name: "Clio" }));
     await fireEvent.press(screen.getByRole("button", { name: "Choisir Karim Alaoui" }));

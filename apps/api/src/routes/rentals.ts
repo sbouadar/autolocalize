@@ -46,6 +46,8 @@ const fields = {
   price: amount,
   deposit: amount,
   allowedZoneId: id.nullable(),
+  pickupLocation: optionalText(191),
+  returnLocation: optionalText(191),
   notes: optionalText(2000),
 };
 
@@ -83,6 +85,8 @@ export const rentalSelect = {
   price: true,
   deposit: true,
   allowedZoneId: true,
+  pickupLocation: true,
+  returnLocation: true,
   notes: true,
   cancelledAt: true,
   createdAt: true,
@@ -157,7 +161,9 @@ const rentalRoutes: FastifyPluginAsync = async (app) => {
     return { rentals: rows.map((r) => publicRental(r, now)) };
   });
 
-  // Véhicules du client et leur disponibilité sur une période.
+  // Véhicules du client et leur disponibilité sur une période : les libres d'abord, puis les
+  // indisponibles avec leur motif. Période entièrement passée (ancienne réservation à reprendre) :
+  // tous les véhicules sont proposés, sans contrôle.
   app.get("/vehicles/availability", async (request, reply) => {
     const parsed = availabilityQuery.safeParse(request.query);
     if (!parsed.success) return reply.badRequest("Période invalide");
@@ -165,27 +171,37 @@ const rentalRoutes: FastifyPluginAsync = async (app) => {
     const error = periodError(from, to);
     if (error) return reply.badRequest(error);
     const tenantId = tenantOf(request);
+    const past = to <= new Date();
 
     const [vehicles, rentals, unavailabilities] = await Promise.all([
       prisma.vehicle.findMany({ where: { tenantId }, select: { id: true, name: true, plate: true }, orderBy: { name: "asc" } }),
-      prisma.rental.findMany({
-        where: { tenantId, status: { in: [...ACTIVE_RENTAL_STATUSES] }, startAt: { lt: to }, endAt: { gt: from } },
-        select: { vehicleId: true },
-      }),
-      prisma.vehicleUnavailability.findMany({
-        where: { tenantId, startAt: { lt: to }, OR: [{ endAt: null }, { endAt: { gt: from } }] },
-        select: { vehicleId: true },
-      }),
+      past
+        ? []
+        : prisma.rental.findMany({
+            where: { tenantId, status: { in: [...ACTIVE_RENTAL_STATUSES] }, startAt: { lt: to }, endAt: { gt: from } },
+            select: { vehicleId: true },
+          }),
+      past
+        ? []
+        : prisma.vehicleUnavailability.findMany({
+            where: { tenantId, startAt: { lt: to }, OR: [{ endAt: null }, { endAt: { gt: from } }] },
+            select: { vehicleId: true, reason: true },
+            orderBy: { startAt: "asc" },
+          }),
     ]);
     const rented = new Set(rentals.map((r) => r.vehicleId));
-    const unavailable = new Set(unavailabilities.map((u) => u.vehicleId));
-    return {
-      vehicles: vehicles.map((v) => ({
-        ...v,
-        available: !rented.has(v.id) && !unavailable.has(v.id),
-        reason: rented.has(v.id) ? "RENTED" : unavailable.has(v.id) ? "UNAVAILABLE" : null,
-      })),
-    };
+    // Plusieurs indisponibilités sur la période : le motif de la première.
+    const unavailable = new Map<string, (typeof unavailabilities)[number]["reason"]>();
+    for (const u of unavailabilities) if (!unavailable.has(u.vehicleId)) unavailable.set(u.vehicleId, u.reason);
+    const list = vehicles.map((v) => ({
+      ...v,
+      available: !rented.has(v.id) && !unavailable.has(v.id),
+      reason: rented.has(v.id) ? "RENTED" : unavailable.has(v.id) ? "UNAVAILABLE" : null,
+      /** Motif de l'indisponibilité (entretien, réparation, accident, autre) quand ce n'est pas une location. */
+      unavailabilityReason: rented.has(v.id) ? null : (unavailable.get(v.id) ?? null),
+    }));
+    // Tri stable : l'ordre alphabétique est conservé dans chaque groupe.
+    return { past, vehicles: [...list.filter((v) => v.available), ...list.filter((v) => !v.available)] };
   });
 
   app.post("/rentals", { preHandler: writers }, async (request, reply) => {
@@ -195,7 +211,9 @@ const rentalRoutes: FastifyPluginAsync = async (app) => {
     const { vehicleId, customerId, startAt, endAt, ...rest } = parsed.data;
     const error = periodError(startAt, endAt);
     if (error) return reply.badRequest(error);
-    if (endAt <= new Date()) return reply.badRequest("La fin de la location doit être dans le futur");
+    // Une période passée est acceptée : une ancienne réservation peut être reprise dans le système,
+    // sans contrôle de disponibilité (tous les véhicules sont alors proposés).
+    const past = endAt <= new Date();
 
     // Véhicule et locataire du client connecté ; ceux d'un autre client sont traités comme inexistants.
     const [vehicle, customer] = await Promise.all([
@@ -209,7 +227,7 @@ const rentalRoutes: FastifyPluginAsync = async (app) => {
 
     const result = await prisma.$transaction(async (tx) => {
       await lockVehicle(tx, vehicle.id);
-      const conflict = await findConflict(tx, vehicle.id, startAt, endAt);
+      const conflict = past ? null : await findConflict(tx, vehicle.id, startAt, endAt);
       if (conflict) return { conflict };
       const row = await tx.rental.create({
         data: {

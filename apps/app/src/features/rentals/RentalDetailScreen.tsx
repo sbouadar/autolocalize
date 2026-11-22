@@ -159,6 +159,8 @@ export function RentalDetailScreen({ id }: { id: string }) {
         <Card title="Location" right={canWrite && open ? <Button label="Modifier" variant="secondary" onPress={() => setEditing(true)} /> : null}>
           <Row label="Départ prévu" value={formatDateTime(r.startAt)} />
           <Row label="Retour prévu" value={formatDateTime(r.endAt)} />
+          <Row label="Lieu de prise en charge" value={r.pickupLocation} />
+          <Row label="Lieu de dépôt" value={r.returnLocation} />
           <Row label="Départ réel" value={r.pickedUpAt ? formatDateTime(r.pickedUpAt) : null} />
           <Row label="Retour réel" value={r.returnedAt ? formatDateTime(r.returnedAt) : null} />
           <Row label="Prix" value={r.price ? formatMoney(r.price, r.currency) : null} />

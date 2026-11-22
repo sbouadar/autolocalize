@@ -122,10 +122,34 @@ export const rentalSchema = z.object({
   deposit: nullableString,
   currency: currencySchema.catch("MAD"),
   allowedZoneId: nullableString,
+  /** Absents d'une API pas encore mise à jour : null. */
+  pickupLocation: nullableString.optional().default(null),
+  returnLocation: nullableString.optional().default(null),
   notes: nullableString,
   late: z.boolean(),
 });
 export type Rental = z.infer<typeof rentalSchema>;
+
+/**
+ * Agences proposées pour la prise en charge et le dépôt (les mêmes que sur le site web de réservation).
+ * Liste commune à tous les clients pour l'instant ; « Autre » permet une saisie libre.
+ */
+export const RENTAL_LOCATIONS = [
+  "AGADIR AEROPORT",
+  "AGADIR CENTRE-VILLE",
+  "CASABLANCA AEROPORT",
+  "CASABLANCA CENTRE-VILLE",
+  "ESSAOUIRA AEROPORT",
+  "FES AEROPORT",
+  "FES CENTRE-VILLE",
+  "MARRAKECH AEROPORT",
+  "MARRAKECH CENTRE-VILLE",
+  "OUJDA AEROPORT",
+  "RABAT AEROPORT",
+  "RABAT CENTRE-VILLE",
+  "TANGER AEROPORT",
+  "TANGER CENTRE-VILLE",
+] as const;
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = { MAD: "DH", EUR: "€", USD: "$" };
 const money = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -168,10 +192,30 @@ export function useRental(id: string) {
 }
 
 const availabilitySchema = z.object({
+  /** Période entièrement passée : tous les véhicules sont proposés, sans contrôle. */
+  past: z.boolean().optional().default(false),
   vehicles: z.array(
-    z.object({ id: z.string(), name: z.string(), plate: nullableString, available: z.boolean(), reason: nullableString }),
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      plate: nullableString,
+      available: z.boolean(),
+      /** « RENTED » (déjà loué) ou « UNAVAILABLE » (immobilisé). */
+      reason: nullableString,
+      /** Motif de l'immobilisation : MAINTENANCE, REPAIR, ACCIDENT ou OTHER. */
+      unavailabilityReason: nullableString.optional().default(null),
+    }),
   ),
 });
+
+/** « Déjà loué », « Indisponible : entretien »… ; null si le véhicule est libre. */
+export function unavailableLabel(v: { available: boolean; reason: string | null; unavailabilityReason?: string | null }): string | null {
+  if (v.available) return null;
+  if (v.reason === "RENTED") return "Déjà loué";
+  const motives: Record<string, string> = { MAINTENANCE: "entretien", REPAIR: "réparation", ACCIDENT: "accident", OTHER: "autre motif" };
+  const motive = v.unavailabilityReason ? motives[v.unavailabilityReason] : undefined;
+  return motive ? `Indisponible : ${motive}` : "Indisponible";
+}
 export type VehicleAvailability = z.infer<typeof availabilitySchema>["vehicles"][number];
 
 /** Véhicules et leur disponibilité sur une période (désactivé tant que la période n'est pas saisie). */
@@ -194,6 +238,8 @@ export interface RentalInput {
   deposit?: number | null;
   notes?: string | null;
   allowedZoneId?: string | null;
+  pickupLocation?: string | null;
+  returnLocation?: string | null;
 }
 
 export function useRentalActions() {

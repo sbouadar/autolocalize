@@ -176,6 +176,8 @@ const rentalOpsRoutes: FastifyPluginAsync = async (app) => {
       vehicle,
       startAt: rental.startAt,
       endAt: rental.endAt,
+      pickupLocation: rental.pickupLocation,
+      returnLocation: rental.returnLocation,
       pickedUpAt,
       odometerOutKm: odometerKm,
       fuelOut: fuelLevel,

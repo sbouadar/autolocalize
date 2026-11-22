@@ -192,6 +192,29 @@ describe("M5 : locataires et réservations", () => {
       assert.equal(r.late, false);
     });
 
+    it("enregistre les lieux de prise en charge et de dépôt, et accepte une ancienne réservation", async () => {
+      const res = await book({ startAt: at(-72), endAt: at(-24), pickupLocation: "CASABLANCA AEROPORT", returnLocation: "  Hôtel Atlas, Rabat " });
+      assert.equal(res.status, 201);
+      assert.equal(res.json.rental.status, "RESERVED");
+      assert.equal(res.json.rental.pickupLocation, "CASABLANCA AEROPORT");
+      assert.equal(res.json.rental.returnLocation, "Hôtel Atlas, Rabat");
+      assert.equal((await book({ startAt: at(100), endAt: at(120), pickupLocation: "x".repeat(192) })).status, 400);
+      const cleared = await call(ctx.app, "PUT", `/api/rentals/${res.json.rental.id}`, alice, { returnLocation: null });
+      assert.equal(cleared.json.rental.returnLocation, null);
+    });
+
+    it("propose tous les véhicules pour une période passée, sans contrôle de disponibilité", async () => {
+      assert.equal((await book({ startAt: at(-72), endAt: at(-24) })).status, 201);
+      const availability = await call(ctx.app, "GET", `/api/vehicles/availability?from=${at(-60)}&to=${at(-30)}`, alice);
+      assert.equal(availability.json.past, true);
+      assert.ok(availability.json.vehicles.length > 0);
+      assert.ok(availability.json.vehicles.every((v: { available: boolean; reason: unknown }) => v.available && v.reason === null));
+      // Une seconde ancienne réservation du même véhicule sur la même période est acceptée.
+      assert.equal((await book({ startAt: at(-60), endAt: at(-30) })).status, 201);
+      // Une période qui déborde sur l'avenir reste contrôlée.
+      assert.equal((await book({ startAt: at(-48), endAt: at(2) })).status, 409);
+    });
+
     it("refuse un chevauchement avec une autre réservation, mais accepte des périodes qui se touchent", async () => {
       assert.equal((await book({})).status, 201); // de +24 h à +72 h
       for (const [s, e] of [[30, 40], [10, 30], [60, 100], [10, 100]] as const) {
@@ -252,7 +275,6 @@ describe("M5 : locataires et réservations", () => {
     it("valide la période, le véhicule, le locataire et les montants", async () => {
       for (const body of [
         { startAt: at(10), endAt: at(5) },
-        { startAt: at(-48), endAt: at(-24) },
         { startAt: at(1), endAt: at(24 * 400) },
         { vehicleId: theirs },
         { customerId: "inconnu" },
@@ -276,10 +298,11 @@ describe("M5 : locataires et réservations", () => {
 
       const free = async (from: number, to: number) =>
         (await call(ctx.app, "GET", `/api/vehicles/availability?from=${encodeURIComponent(at(from))}&to=${encodeURIComponent(at(to))}`, viewer)).json.vehicles.map(
-          (v: { name: string; available: boolean; reason: string | null }) => [v.name, v.available, v.reason],
+          (v: { name: string; available: boolean; reason: string | null; unavailabilityReason: string | null }) => [v.name, v.available, v.reason, v.unavailabilityReason],
         );
-      assert.deepEqual(await free(30, 40), [["Clio", false, "RENTED"], ["Master", true, null]]);
-      assert.deepEqual(await free(210, 215), [["Clio", true, null], ["Master", false, "UNAVAILABLE"]]);
+      // Les véhicules libres d'abord, puis les indisponibles avec leur motif.
+      assert.deepEqual(await free(30, 40), [["Master", true, null, null], ["Clio", false, "RENTED", null]]);
+      assert.deepEqual(await free(210, 215), [["Clio", true, null, null], ["Master", false, "UNAVAILABLE", "MAINTENANCE"]]);
     });
 
     it("réserve l'écriture à l'admin et aux agents, et cloisonne les clients", async () => {

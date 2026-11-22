@@ -26,3 +26,9 @@ prochaine session**, puis vider ce fichier.
    mettre en place demande un accès root au VPS : voulez-vous que je prépare un script versionné dans
    `deploy/` à lancer par une tâche planifiée du serveur, et où envoyer les sauvegardes (autre
    serveur, stockage objet) ?
+8. **Agences (lieux de prise en charge et de dépôt)** : la liste proposée à la réservation est celle
+   de votre site web, la même pour tous les clients. Faut-il une liste propre à chaque client,
+   modifiable dans son Profil ? Choix par défaut : liste commune, plus « Autre (saisie libre) ».
+9. **Ancienne réservation reprise dans le système** : elle est créée « Réservée » ; le départ et le
+   retour saisis ensuite prennent la date du jour de la saisie. Faut-il pouvoir saisir la date et
+   l'heure réelles du départ et du retour (ou créer directement la location comme « Terminée ») ?

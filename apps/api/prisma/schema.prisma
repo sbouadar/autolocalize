@@ -434,6 +434,8 @@ model Rental {
   price         Decimal?     @db.Decimal(12, 2) // saisi à la main, dans la devise du client
   deposit       Decimal?     @db.Decimal(12, 2)
   allowedZoneId String? // zone que le véhicule ne doit pas quitter
+  pickupLocation String?     @db.VarChar(191) // lieu de prise en charge (agence ou saisie libre)
+  returnLocation String?     @db.VarChar(191) // lieu de dépôt
   notes         String?      @db.Text
   createdBy     String
   cancelledAt   DateTime?

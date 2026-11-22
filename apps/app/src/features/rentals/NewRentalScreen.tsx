@@ -4,21 +4,35 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ChoiceChips } from "@/components/ChoiceChips";
+import { DateField } from "@/components/DateField";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { SelectField } from "@/components/SelectField";
 import { Banner } from "@/components/States";
 import { TextField } from "@/components/TextField";
 import { formMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding-context";
-import { parseLocalDateTime, todayFrench } from "@/lib/dates";
+import { localDateTime, TIME_OPTIONS, todayIso } from "@/lib/dates";
 import { formatDateTime } from "@/lib/format";
-import { parseAmount, useAvailability, useCustomers, useRentalActions, type Customer } from "@/lib/rentals";
+import { parseAmount, RENTAL_LOCATIONS, unavailableLabel, useAvailability, useCustomers, useRentalActions, type Customer } from "@/lib/rentals";
 import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { useZones } from "@/lib/zones";
 import { CustomerForm } from "./CustomerForm";
 
 const SEARCH_DELAY_MS = 300;
+const OTHER = "__other__";
+const LOCATION_OPTIONS = [...RENTAL_LOCATIONS.map((l) => ({ key: l as string, label: l as string })), { key: OTHER, label: "Autre (saisie libre)" }];
+
+/** Lieu de prise en charge ou de dépôt : une agence de la liste, ou « Autre » pour le saisir. */
+function LocationField({ label, choice, onChoice, other, onOther }: { label: string; choice: string | null; onChoice: (c: string) => void; other: string; onOther: (t: string) => void }) {
+  return (
+    <>
+      <SelectField label={label} options={LOCATION_OPTIONS} value={choice} onChange={onChoice} placeholder="Choisir une agence" />
+      {choice === OTHER ? <TextField label={`${label} : précisez`} value={other} onChangeText={onOther} maxLength={191} placeholder="Adresse, hôtel, gare…" /> : null}
+    </>
+  );
+}
 
 /** Choix du locataire : recherche parmi les locataires existants, ou création. */
 function CustomerPicker({ selected, onSelect }: { selected: Customer | null; onSelect: (c: Customer | null) => void }) {
@@ -80,10 +94,15 @@ export function NewRentalScreen() {
   const router = useRouter();
   useDocumentTitle(`Nouvelle réservation — ${branding.name}`);
   const { create } = useRentalActions();
-  const [fromDate, setFromDate] = useState(todayFrench());
+  // Le départ est préréglé sur aujourd'hui, mais une date passée reste possible (ancienne réservation à reprendre).
+  const [fromDay, setFromDay] = useState<string | null>(todayIso());
   const [fromTime, setFromTime] = useState("09:00");
-  const [toDate, setToDate] = useState("");
+  const [toDay, setToDay] = useState<string | null>(null);
   const [toTime, setToTime] = useState("09:00");
+  const [pickupChoice, setPickupChoice] = useState<string | null>(null);
+  const [pickupOther, setPickupOther] = useState("");
+  const [returnChoice, setReturnChoice] = useState<string | null>(null);
+  const [returnOther, setReturnOther] = useState("");
   const [period, setPeriod] = useState<{ from: string; to: string } | null>(null);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -102,9 +121,9 @@ export function NewRentalScreen() {
 
   const choosePeriod = () => {
     setError(null);
-    const from = parseLocalDateTime(fromDate, fromTime);
-    const to = parseLocalDateTime(toDate, toTime);
-    if (!from || !to) return setError("Saisissez les dates au format JJ/MM/AAAA et les heures au format HH:MM.");
+    if (!fromDay || !toDay) return setError("Choisissez la date de départ et la date de retour.");
+    const from = localDateTime(fromDay, fromTime);
+    const to = localDateTime(toDay, toTime);
     if (to <= from) return setError("Le retour doit être après le départ.");
     setVehicleId(null);
     setPeriod({ from, to });
@@ -124,6 +143,8 @@ export function NewRentalScreen() {
         price: amounts.price,
         deposit: amounts.deposit,
         notes: notes.trim() || null,
+        pickupLocation: (pickupChoice === OTHER ? pickupOther.trim() : pickupChoice) || null,
+        returnLocation: (returnChoice === OTHER ? returnOther.trim() : returnChoice) || null,
         ...(zoneId !== "none" && { allowedZoneId: zoneId }),
       });
       router.replace({ pathname: "/rentals/[id]", params: { id: result.rental.id } });
@@ -140,23 +161,25 @@ export function NewRentalScreen() {
     <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
       <ScreenHeader title="Nouvelle réservation" fallback="/rentals" />
 
-      <Card title="1. Période">
+      <Card title="1. Période et lieux">
         <View style={styles.pair}>
           <View style={styles.flex}>
-            <TextField label="Départ (JJ/MM/AAAA)" value={fromDate} onChangeText={setFromDate} keyboardType="numbers-and-punctuation" maxLength={10} />
+            <DateField label="Date de départ" value={fromDay} onChange={setFromDay} />
           </View>
           <View style={styles.time}>
-            <TextField label="Heure de départ" value={fromTime} onChangeText={setFromTime} keyboardType="numbers-and-punctuation" maxLength={5} />
+            <SelectField label="Heure de départ" options={TIME_OPTIONS} value={fromTime} onChange={setFromTime} />
           </View>
         </View>
         <View style={styles.pair}>
           <View style={styles.flex}>
-            <TextField label="Retour (JJ/MM/AAAA)" value={toDate} onChangeText={setToDate} keyboardType="numbers-and-punctuation" maxLength={10} />
+            <DateField label="Date de retour" value={toDay} onChange={setToDay} min={fromDay} openOn={fromDay} />
           </View>
           <View style={styles.time}>
-            <TextField label="Heure de retour" value={toTime} onChangeText={setToTime} keyboardType="numbers-and-punctuation" maxLength={5} />
+            <SelectField label="Heure de retour" options={TIME_OPTIONS} value={toTime} onChange={setToTime} />
           </View>
         </View>
+        <LocationField label="Lieu de prise en charge" choice={pickupChoice} onChoice={setPickupChoice} other={pickupOther} onOther={setPickupOther} />
+        <LocationField label="Lieu de dépôt" choice={returnChoice} onChoice={setReturnChoice} other={returnOther} onOther={setReturnOther} />
         <Button label={period ? "Changer la période" : "Voir les véhicules libres"} variant={period ? "secondary" : "primary"} onPress={choosePeriod} />
         {period ? (
           <Text style={styles.muted}>
@@ -167,19 +190,24 @@ export function NewRentalScreen() {
 
       {period ? (
         <Card title="2. Véhicule">
+          {availability.data?.past ? (
+            <Text style={styles.muted}>Période passée : tous les véhicules sont proposés, sans contrôle de disponibilité.</Text>
+          ) : null}
           {availability.isPending ? (
             <Text style={styles.muted}>Recherche des véhicules libres…</Text>
           ) : availability.isError ? (
             <Text style={styles.muted}>Les disponibilités n’ont pas pu être chargées.</Text>
           ) : (
+            // L'API renvoie les véhicules libres d'abord, puis les indisponibles avec leur motif.
             vehicles.map((v) => {
               const active = v.id === vehicleId;
+              const blocked = unavailableLabel(v);
               return (
                 <Pressable
                   key={v.id}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: active, disabled: !v.available }}
-                  accessibilityLabel={`${v.name}${v.available ? "" : v.reason === "RENTED" ? ", déjà loué" : ", indisponible"}`}
+                  accessibilityLabel={blocked ? `${v.name}, ${blocked.toLowerCase()}` : v.name}
                   disabled={!v.available}
                   onPress={() => setVehicleId(v.id)}
                   style={({ pressed }) => [
@@ -191,7 +219,7 @@ export function NewRentalScreen() {
                 >
                   <Text style={[styles.name, active && { color: branding.onPrimary }]}>{v.name}</Text>
                   <Text style={[styles.muted, active && { color: branding.onPrimary }]}>
-                    {v.available ? (v.plate ?? "Libre") : v.reason === "RENTED" ? "Déjà loué sur cette période" : "Indisponible sur cette période"}
+                    {blocked ? `${blocked} sur cette période` : (v.plate ?? "Libre")}
                   </Text>
                 </Pressable>
               );
