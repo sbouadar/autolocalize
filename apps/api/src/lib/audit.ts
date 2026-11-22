@@ -32,6 +32,7 @@ export type AuditAction =
   | "driver.update"
   | "driver.delete"
   | "driver.assign"
+  | "export.download"
   | "expense.create"
   | "expense.update"
   | "expense.delete"

@@ -14,6 +14,7 @@ import deadlineRoutes from "./routes/deadlines.js";
 import driverRoutes from "./routes/drivers.js";
 import eventRoutes from "./routes/events.js";
 import expenseRoutes from "./routes/expenses.js";
+import exportRoutes from "./routes/exports.js";
 import healthRoutes from "./routes/health.js";
 import maintenanceRoutes from "./routes/maintenance.js";
 import meRoutes from "./routes/me.js";
@@ -76,6 +77,7 @@ export async function buildApp() {
       await api.register(maintenanceRoutes);
       await api.register(expenseRoutes);
       await api.register(driverRoutes);
+      await api.register(exportRoutes);
       await api.register(customerRoutes);
       await api.register(rentalRoutes);
       await api.register(rentalOpsRoutes);

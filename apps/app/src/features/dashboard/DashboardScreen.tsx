@@ -95,6 +95,17 @@ export function DashboardScreen() {
           <Text style={styles.muted}>{me.tenant?.rentalsEnabled ? "Recettes, dépenses et marge par véhicule" : "Dépenses et coût au kilomètre par véhicule"}</Text>
         </Pressable>
       ) : null}
+      {me?.user.role === "TENANT_ADMIN" || me?.user.role === "VIEWER" ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Rapports et exports"
+          onPress={() => router.push("/exports")}
+          style={({ pressed }) => [styles.link, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.linkTitle}>Rapports et exports</Text>
+          <Text style={styles.muted}>Trajets, dépenses, entretiens{me.tenant?.rentalsEnabled ? ", locations" : ""} en fichier Excel (CSV)</Text>
+        </Pressable>
+      ) : null}
       <SegmentedControl options={DASHBOARD_PERIODS} value={periodKey} onChange={setPeriodKey} />
 
       {isPending ? (
