@@ -31,6 +31,7 @@ import { StatusBadge } from "./AdminHomeScreen";
 import { AssignVehicleForm } from "./AssignVehicleForm";
 import { AuditList } from "./AuditList";
 import { CredentialsCard } from "./CredentialsCard";
+import { BillingCard } from "./BillingCard";
 import { TenantSettingsCard } from "./TenantSettingsCard";
 
 const STATUS_OPTIONS = (Object.keys(TENANT_STATUS_LABELS) as TenantStatus[]).map((key) => ({
@@ -199,9 +200,27 @@ export function TenantDetailScreen({ id }: { id: string }) {
         <Text style={styles.muted}>{STATUS_WARNINGS[tenant.status]}</Text>
       </Card>
 
+      <BillingCard
+        key={`${tenant.id}-${tenant.plan}-${tenant.vehicleQuota}-${tenant.monthlyFee}-${tenant.paidUntil}`}
+        tenant={tenant}
+        onUpdate={(body) => run(() => actions.update(body))}
+      />
+
       <TenantSettingsCard key={`${tenant.id}-${tenant.timezone}`} tenant={tenant} onUpdate={(body) => run(() => actions.update(body))} />
 
-      <Card title={`Traceurs (${vehicles.length})`} right={assigning ? null : <Button label="Affecter un traceur" onPress={() => setAssigning(true)} />}>
+      <Card
+        title={`Traceurs (${vehicles.length}${tenant.vehicleQuota != null ? ` / ${tenant.vehicleQuota} prévus` : ""})`}
+        right={assigning ? null : <Button label="Affecter un traceur" onPress={() => setAssigning(true)} />}
+      >
+        {tenant.vehicleQuota != null && vehicles.length >= tenant.vehicleQuota ? (
+          <Banner
+            message={
+              vehicles.length > tenant.vehicleQuota
+                ? `Quota du contrat dépassé : ${vehicles.length} traceurs pour ${tenant.vehicleQuota} prévus.`
+                : "Quota du contrat atteint : un traceur de plus le dépassera (affectation possible)."
+            }
+          />
+        ) : null}
         {!data.traccarAvailable ? <Banner message="Traccar est momentanément indisponible : états des traceurs inconnus." /> : null}
         {vehicles.length === 0 && !assigning ? <Text style={styles.muted}>Aucun traceur affecté.</Text> : null}
         {vehicles.map((v) => (

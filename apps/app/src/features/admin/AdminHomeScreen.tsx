@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/States";
-import { TENANT_STATUS_LABELS, useTenants, type TenantStatus } from "@/lib/admin";
+import { BILLING_STATUS_LABELS, TENANT_STATUS_LABELS, useTenants, type TenantStatus } from "@/lib/admin";
+import { formatDateOnly } from "@/lib/dates";
 import { userMessage } from "@/lib/api";
 import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
@@ -42,6 +43,7 @@ export function AdminHomeScreen() {
           Administration
         </Text>
         <View style={styles.actions}>
+          <Button label="Facturation" variant="secondary" onPress={() => router.push("/admin/billing")} />
           <Button label="Journal" variant="secondary" onPress={() => router.push("/admin/audit")} />
           <Button label="Nouveau client" onPress={() => router.push("/admin/tenants/new")} />
         </View>
@@ -79,8 +81,15 @@ export function AdminHomeScreen() {
                   {t.name}
                 </Text>
                 <Text style={styles.muted}>
-                  /login/{t.slug} · {t.vehicleCount} véhicule{t.vehicleCount > 1 ? "s" : ""}
+                  /login/{t.slug} · {t.vehicleCount}
+                  {t.vehicleQuota != null ? ` / ${t.vehicleQuota}` : ""} véhicule{t.vehicleCount > 1 ? "s" : ""}
                 </Text>
+                {t.billingStatus === "OVERDUE" || t.billingStatus === "DUE_SOON" ? (
+                  <Text style={[styles.muted, { color: t.billingStatus === "OVERDUE" ? colors.danger : colors.warning }]}>
+                    {BILLING_STATUS_LABELS[t.billingStatus]}
+                    {t.paidUntil ? ` (payé jusqu’au ${formatDateOnly(t.paidUntil)})` : ""}
+                  </Text>
+                ) : null}
               </View>
               <StatusBadge status={t.status} />
             </Pressable>

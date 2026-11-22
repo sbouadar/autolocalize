@@ -3,6 +3,8 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { audit } from "../lib/audit.js";
+import { daysBetween, isoDate, todayIn } from "../lib/deadlines.js";
+import { centsToString, toCents } from "../lib/expenses.js";
 import { dataKeysConfigured } from "../lib/crypto.js";
 import { clearLogo, decodeLogo, LOGO_ERRORS, logoBody, replaceLogo } from "../lib/logos.js";
 import { generateTemporaryPassword, resetToTemporaryPassword } from "../lib/passwords.js";
@@ -67,8 +69,42 @@ const updateTenantBody = brandingBody
     timezone: timezone.optional(),
     rentalsEnabled: z.boolean().optional(),
     driversEnabled: z.boolean().optional(),
+    // Abonnement (M11)
+    plan: z.string().trim().max(32).nullable().optional().transform((v) => (v ? v : v === undefined ? undefined : null)),
+    vehicleQuota: z.number().int().min(0).max(10_000).nullable().optional(),
+    monthlyFee: z
+      .number()
+      .min(0)
+      .max(99_999_999)
+      .refine((n) => Math.abs(Math.round(n * 100) - n * 100) < 1e-6, "2 décimales au plus")
+      .transform((n) => n.toFixed(2))
+      .nullable()
+      .optional(),
+    paidUntil: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Date au format AAAA-MM-JJ")
+      .refine((v) => {
+        const d = new Date(`${v}T00:00:00Z`);
+        return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v && v >= "2020-01-01";
+      }, "Date invalide")
+      .transform((v) => new Date(`${v}T00:00:00Z`))
+      .nullable()
+      .optional(),
+    billingNotes: z.string().trim().max(5000).nullable().optional().transform((v) => (v ? v : v === undefined ? undefined : null)),
   })
   .strict();
+
+/** Fuseau de référence du super-admin pour les échéances d'abonnement. */
+const BILLING_TIMEZONE = "Africa/Casablanca";
+/** Échéance proche : à relancer. */
+const BILLING_WARN_DAYS = 7;
+
+type BillingStatus = "OVERDUE" | "DUE_SOON" | "OK" | "NONE";
+function billingStatus(paidUntil: Date | null, today: string): { status: BillingStatus; daysLeft: number | null } {
+  if (!paidUntil) return { status: "NONE", daysLeft: null };
+  const daysLeft = daysBetween(today, isoDate(paidUntil));
+  return { status: daysLeft < 0 ? "OVERDUE" : daysLeft <= BILLING_WARN_DAYS ? "DUE_SOON" : "OK", daysLeft };
+}
 
 const HISTORY_MAX_YEARS = 5;
 
@@ -147,11 +183,71 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         logoUrl: true,
         primaryColor: true,
         createdAt: true,
+        vehicleQuota: true,
+        paidUntil: true,
         _count: { select: { vehicles: true, users: true } },
       },
     });
+    const today = todayIn(BILLING_TIMEZONE);
     return {
-      tenants: tenants.map(({ _count, ...t }) => ({ ...t, vehicleCount: _count.vehicles, userCount: _count.users })),
+      tenants: tenants.map(({ _count, paidUntil, ...t }) => ({
+        ...t,
+        vehicleCount: _count.vehicles,
+        userCount: _count.users,
+        paidUntil: paidUntil ? isoDate(paidUntil) : null,
+        billingStatus: billingStatus(paidUntil, today).status,
+      })),
+    };
+  });
+
+  // Abonnements : échéances dépassées ou proches d'abord, quotas, revenu mensuel par devise.
+  app.get("/admin/billing", async () => {
+    const tenants = await prisma.tenant.findMany({
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        currency: true,
+        plan: true,
+        vehicleQuota: true,
+        monthlyFee: true,
+        paidUntil: true,
+        billingNotes: true,
+        _count: { select: { vehicles: true } },
+      },
+    });
+    const today = todayIn(BILLING_TIMEZONE);
+    const rank: Record<BillingStatus, number> = { OVERDUE: 0, DUE_SOON: 1, OK: 2, NONE: 3 };
+    const rows = tenants.map(({ _count, monthlyFee, paidUntil, ...t }) => {
+      const { status, daysLeft } = billingStatus(paidUntil, today);
+      return {
+        ...t,
+        monthlyFee: monthlyFee?.toFixed(2) ?? null,
+        paidUntil: paidUntil ? isoDate(paidUntil) : null,
+        billingStatus: status,
+        daysLeft,
+        vehicleCount: _count.vehicles,
+        overQuota: t.vehicleQuota != null && _count.vehicles > t.vehicleQuota,
+      };
+    });
+    // Revenu mensuel des clients actifs, par devise.
+    const monthly = new Map<string, number>();
+    for (const t of rows) {
+      if (t.status === "ACTIVE" && t.monthlyFee) monthly.set(t.currency, (monthly.get(t.currency) ?? 0) + toCents(t.monthlyFee));
+    }
+    return {
+      today,
+      tenants: rows
+        .filter((t) => t.status !== "CANCELLED")
+        .sort((a, b) => rank[a.billingStatus] - rank[b.billingStatus] || (a.daysLeft ?? 0) - (b.daysLeft ?? 0) || a.name.localeCompare(b.name)),
+      monthlyRevenue: [...monthly].map(([currency, cents]) => ({ currency, amount: centsToString(cents) })),
+      counts: {
+        overdue: rows.filter((t) => t.status !== "CANCELLED" && t.billingStatus === "OVERDUE").length,
+        dueSoon: rows.filter((t) => t.status !== "CANCELLED" && t.billingStatus === "DUE_SOON").length,
+        overQuota: rows.filter((t) => t.status !== "CANCELLED" && t.overQuota).length,
+      },
     };
   });
 
@@ -261,7 +357,9 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const tenant = await prisma.tenant.update({ where: { id }, data: parsed.data });
-    await audit(request, "tenant.update", { tenantId: id, targetId: id, details: parsed.data });
+    // Notes de facturation : seulement leur présence dans le journal.
+    const { billingNotes, ...logged } = parsed.data;
+    await audit(request, "tenant.update", { tenantId: id, targetId: id, details: { ...logged, ...(billingNotes !== undefined && { billingNotes: billingNotes ? "modifiées" : "effacées" }) } });
     return { tenant };
   });
 
@@ -416,7 +514,12 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       targetId: vehicle.id,
       details: { traccarDeviceId: deviceId, name: vehicle.name, plate: vehicle.plate, created: body.imei !== undefined, historyStartAt: vehicle.historyStartAt.toISOString() },
     });
-    return reply.code(201).send({ vehicle });
+    // Quota du contrat : affiché, jamais bloquant (M11).
+    const [used, quota] = await Promise.all([
+      prisma.vehicle.count({ where: { tenantId: tenant.id } }),
+      prisma.tenant.findUniqueOrThrow({ where: { id: tenant.id }, select: { vehicleQuota: true } }),
+    ]);
+    return reply.code(201).send({ vehicle, quota: { used, max: quota.vehicleQuota, exceeded: quota.vehicleQuota != null && used > quota.vehicleQuota } });
   });
 
   app.put("/admin/vehicles/:id", async (request, reply) => {

@@ -38,6 +38,12 @@ model Tenant {
   rentalsEnabled Boolean      @default(false) // module location (réservations, départs et retours)
   driversEnabled Boolean      @default(false) // module conducteurs (flottes d'entreprise)
   rentalTerms    String?      @db.Text // conditions générales de location, reprises dans le contrat PDF
+  // Abonnement (M11), géré par le super-admin. Pas de paiement en ligne ni de suspension automatique.
+  plan           String?      @db.VarChar(32) // formule (texte libre)
+  vehicleQuota   Int? // nombre de traceurs prévus au contrat (affiché, non bloquant)
+  monthlyFee     Decimal?     @db.Decimal(12, 2) // montant mensuel, dans la devise du client
+  paidUntil      DateTime?    @db.Date // abonnement payé jusqu'à cette date
+  billingNotes   String?      @db.Text
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

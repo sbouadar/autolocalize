@@ -25,6 +25,9 @@ const tenantSummarySchema = z.object({
   createdAt: z.string(),
   vehicleCount: z.number(),
   userCount: z.number(),
+  vehicleQuota: z.number().nullable().optional().default(null),
+  paidUntil: nullableString.optional().default(null),
+  billingStatus: z.enum(["OVERDUE", "DUE_SOON", "OK", "NONE"]).catch("NONE").default("NONE"),
 });
 export type TenantSummary = z.infer<typeof tenantSummarySchema>;
 
@@ -44,6 +47,20 @@ export const adminTenantSchema = z.object({
   timezone: z.string().default("Africa/Casablanca"),
   rentalsEnabled: z.boolean().default(false),
   driversEnabled: z.boolean().default(false),
+  // Abonnement (M11)
+  plan: nullableString.optional().default(null),
+  vehicleQuota: z.number().nullable().optional().default(null),
+  /** Montant mensuel en chaîne (« 450.5 »), dans la devise du client. */
+  monthlyFee: z
+    .union([z.string(), z.number()])
+    .nullable()
+    .optional()
+    .transform((v) => (v == null ? null : String(v))),
+  /** « 2026-12-31 ». */
+  paidUntil: nullableString
+    .optional()
+    .transform((v) => (v ? v.slice(0, 10) : null)),
+  billingNotes: nullableString.optional().default(null),
 });
 export type AdminTenant = z.infer<typeof adminTenantSchema>;
 
@@ -220,4 +237,41 @@ export function slugify(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
+}
+
+export const BILLING_STATUS_LABELS: Record<TenantSummary["billingStatus"], string> = {
+  OVERDUE: "Échéance dépassée",
+  DUE_SOON: "Échéance proche",
+  OK: "À jour",
+  NONE: "Sans échéance",
+};
+
+const billingSchema = z.object({
+  today: z.string(),
+  tenants: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+      status: tenantStatusSchema,
+      currency: z.enum(["MAD", "EUR", "USD"]).catch("MAD"),
+      plan: nullableString,
+      vehicleQuota: z.number().nullable(),
+      monthlyFee: nullableString,
+      paidUntil: nullableString,
+      billingNotes: nullableString,
+      billingStatus: z.enum(["OVERDUE", "DUE_SOON", "OK", "NONE"]).catch("NONE"),
+      daysLeft: z.number().nullable(),
+      vehicleCount: z.number(),
+      overQuota: z.boolean(),
+    }),
+  ),
+  monthlyRevenue: z.array(z.object({ currency: z.enum(["MAD", "EUR", "USD"]).catch("MAD"), amount: z.string() })),
+  counts: z.object({ overdue: z.number(), dueSoon: z.number(), overQuota: z.number() }),
+});
+export type Billing = z.infer<typeof billingSchema>;
+
+/** Abonnements de tous les clients (super-admin). */
+export function useBilling() {
+  return useQuery({ queryKey: [...ADMIN_KEY, "billing"], queryFn: () => api("/admin/billing", { schema: billingSchema }) });
 }
