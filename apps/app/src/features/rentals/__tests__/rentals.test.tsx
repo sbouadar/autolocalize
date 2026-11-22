@@ -254,6 +254,14 @@ describe("NewRentalScreen", () => {
     expect(sent).toMatchObject({ pickupLocation: null, returnLocation: null });
   });
 
+  it("choisit d'office le véhicule de la fiche d'où l'on vient, s'il est libre", async () => {
+    await render(<NewRentalScreen preferredVehicleId="v1" />);
+    await pickDay("Date de retour", "30 novembre 2026");
+    await fireEvent.press(screen.getByRole("button", { name: "Voir les véhicules libres" }));
+    expect(screen.getByRole("radio", { name: "Clio" }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByText("3. Locataire")).toBeTruthy();
+  });
+
   it("affiche le refus quand le véhicule vient d'être réservé par quelqu'un d'autre", async () => {
     mockCreateRental.mockRejectedValue(new ApiError(409, "Ce véhicule est déjà réservé sur cette période", "RENTAL_OVERLAP"));
     await render(<NewRentalScreen />);

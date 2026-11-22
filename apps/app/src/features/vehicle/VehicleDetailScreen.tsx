@@ -22,6 +22,7 @@ import { DeadlinesCard } from "./DeadlinesCard";
 import { EngineCard } from "./EngineCard";
 import { MaintenanceCard } from "./MaintenanceCard";
 import { OdometerCard } from "./OdometerCard";
+import { RentalsCard } from "./RentalsCard";
 import { ReplayControls } from "./ReplayControls";
 import { TripList } from "./TripList";
 import { UnavailabilityCard } from "./UnavailabilityCard";
@@ -68,7 +69,9 @@ export function VehicleDetailScreen({ id }: { id: string }) {
   const branding = useBranding();
   const vehicleQuery = useVehicle(id);
   // Fiche et relevés modifiables par l'admin du client (et le super-admin connecté en tant que lui).
-  const role = useAuth().me?.user.role;
+  const me = useAuth().me;
+  const role = me?.user.role;
+  const rentalsEnabled = me?.tenant?.rentalsEnabled === true && role !== "SUPER_ADMIN";
   const canEdit = role === "TENANT_ADMIN";
   // Les agents saisissent les relevés de compteur (départs et retours de location à venir).
   const canAddReading = canEdit || role === "AGENT"; // vaut aussi pour les indisponibilités
@@ -220,6 +223,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
       {routeQuery.isError ? <Banner message="Le tracé de la période n’a pas pu être chargé." /> : null}
 
       <Text style={styles.section}>Gestion du véhicule</Text>
+      {rentalsEnabled ? <RentalsCard vehicleId={vehicle.id} canBook={canAddReading} /> : null}
       <UnavailabilityCard vehicleId={vehicle.id} canEdit={canAddReading} />
       <MaintenanceCard vehicleId={vehicle.id} canEdit={canEdit} canRecord={canAddReading} />
       <DeadlinesCard vehicleId={vehicle.id} canEdit={canEdit} />

@@ -87,8 +87,11 @@ function CustomerPicker({ selected, onSelect }: { selected: Customer | null; onS
   );
 }
 
-/** Nouvelle réservation : la période, puis un véhicule libre, puis le locataire et le prix. */
-export function NewRentalScreen() {
+/**
+ * Nouvelle réservation : la période, puis un véhicule libre, puis le locataire et le prix.
+ * `preferredVehicleId` (ouverture depuis la fiche d'un véhicule) : choisi d'office s'il est libre.
+ */
+export function NewRentalScreen({ preferredVehicleId }: { preferredVehicleId?: string } = {}) {
   const { me } = useAuth();
   const branding = useBranding();
   const router = useRouter();
@@ -104,7 +107,7 @@ export function NewRentalScreen() {
   const [returnChoice, setReturnChoice] = useState<string | null>(null);
   const [returnOther, setReturnOther] = useState("");
   const [period, setPeriod] = useState<{ from: string; to: string } | null>(null);
-  const [vehicleId, setVehicleId] = useState<string | null>(null);
+  const [pickedVehicleId, setVehicleId] = useState<string | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [price, setPrice] = useState("");
   const [deposit, setDeposit] = useState("");
@@ -114,6 +117,9 @@ export function NewRentalScreen() {
   const zones = useZones().data?.zones ?? [];
   const [error, setError] = useState<string | null>(null);
   const availability = useAvailability(period?.from ?? null, period?.to ?? null);
+  // Véhicule de la fiche d'où l'on vient : choisi d'office tant qu'aucun autre ne l'est, s'il est libre.
+  const preferredFree = availability.data?.vehicles.some((v) => v.id === preferredVehicleId && v.available) === true;
+  const chosenVehicleId = pickedVehicleId ?? (preferredFree ? preferredVehicleId! : null);
 
   const role = me?.user.role;
   if (me && (!me.tenant?.rentalsEnabled || (role !== "TENANT_ADMIN" && role !== "AGENT"))) return <Redirect href="/" />;
@@ -131,12 +137,12 @@ export function NewRentalScreen() {
 
   const submit = async () => {
     setError(null);
-    if (!period || !vehicleId || !customer) return;
+    if (!period || !chosenVehicleId || !customer) return;
     const amounts = { price: parseAmount(price), deposit: parseAmount(deposit) };
     if (Number.isNaN(amounts.price) || Number.isNaN(amounts.deposit)) return setError("Saisissez les montants en chiffres (ex. 1200 ou 1200,50).");
     try {
       const result = await create.mutateAsync({
-        vehicleId,
+        vehicleId: chosenVehicleId,
         customerId: customer.id,
         startAt: period.from,
         endAt: period.to,
@@ -200,7 +206,7 @@ export function NewRentalScreen() {
           ) : (
             // L'API renvoie les véhicules libres d'abord, puis les indisponibles avec leur motif.
             vehicles.map((v) => {
-              const active = v.id === vehicleId;
+              const active = v.id === chosenVehicleId;
               const blocked = unavailableLabel(v);
               return (
                 <Pressable
@@ -228,13 +234,13 @@ export function NewRentalScreen() {
         </Card>
       ) : null}
 
-      {period && vehicleId ? (
+      {period && chosenVehicleId ? (
         <Card title="3. Locataire">
           <CustomerPicker selected={customer} onSelect={setCustomer} />
         </Card>
       ) : null}
 
-      {period && vehicleId && customer ? (
+      {period && chosenVehicleId && customer ? (
         <Card title="4. Prix">
           <View style={styles.pair}>
             <View style={styles.flex}>
@@ -261,7 +267,7 @@ export function NewRentalScreen() {
       ) : null}
 
       {error ? <Banner message={error} tone="danger" /> : null}
-      {period && vehicleId && customer ? <Button label="Créer la réservation" onPress={() => void submit()} loading={create.isPending} /> : null}
+      {period && chosenVehicleId && customer ? <Button label="Créer la réservation" onPress={() => void submit()} loading={create.isPending} /> : null}
     </ScrollView>
   );
 }
