@@ -63,6 +63,7 @@ model Tenant {
   drivers                 Driver[]
   driverAssignments       DriverAssignment[]
   shareLinks              ShareLink[]
+  alertRules              AlertRule[]
 
   @@map("tenants")
 }
@@ -97,6 +98,8 @@ model User {
   mustChangePassword Boolean   @default(false)
   // Compte désactivé par l'admin du client : sessions fermées, toute requête refusée.
   disabledAt         DateTime?
+  // Types d'alerte que l'utilisateur ne veut pas voir (["ZONE_ENTER", …]) ; vide : toutes.
+  mutedAlertTypes    Json?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -211,6 +214,7 @@ model Vehicle {
   expenses                Expense[]
   driverAssignments       DriverAssignment[]
   shareLinks              ShareLink[]
+  alertRules              AlertRule[]
 
   @@index([tenantId])
   @@map("vehicles")
@@ -469,6 +473,40 @@ model DriverAssignment {
   @@map("driver_assignments")
 }
 
+// ─── Règles d'alerte (alertes, tranche 3) ──────────────────────────────────────
+
+// Règle d'alerte d'un client, évaluée par la tâche planifiée (toutes les 5 min). vehicleId vide :
+// tous les véhicules du client.
+model AlertRule {
+  id               String        @id @default(cuid())
+  tenantId         String
+  type             AlertRuleType
+  name             String?       @db.VarChar(100)
+  vehicleId        String?
+  zoneId           String? // ZONE_DWELL
+  startMinute      Int? // AFTER_HOURS : début de la plage autorisée (minutes depuis minuit, heure du client)
+  endMinute        Int? // AFTER_HOURS : fin de la plage autorisée
+  days             String?       @db.VarChar(13) // AFTER_HOURS : jours autorisés, « 1,2,3,4,5 » (1 = lundi)
+  thresholdMinutes Int? // OFFLINE_DURATION, ZONE_DWELL
+  enabled          Boolean       @default(true)
+  createdBy        String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  zone    Zone?    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("alert_rules")
+}
+
+enum AlertRuleType {
+  AFTER_HOURS
+  OFFLINE_DURATION
+  ZONE_DWELL
+}
+
 // ─── Liens de partage (M10) ───────────────────────────────────────────────────
 
 // Lien public et temporaire vers la position d'un véhicule. Seule l'empreinte SHA-256 du jeton est
@@ -646,9 +684,10 @@ model Zone {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  events   Event[]
-  vehicles ZoneVehicle[]
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  events     Event[]
+  vehicles   ZoneVehicle[]
+  alertRules AlertRule[]
 
   @@index([tenantId])
   @@map("zones")

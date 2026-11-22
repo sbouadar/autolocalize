@@ -52,7 +52,8 @@ describe("AlertsScreen", () => {
     mockQuery.data = { alerts: [alert({ vehicleId: null })], hasMore: true };
     await render(<AlertsScreen />);
     expect(screen.getByText("Entrée dans la zone Dépôt")).toBeTruthy();
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ouvrir la fiche/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Règles d’alerte et préférences" })).toBeTruthy();
     expect(screen.getByText("Seules les 50 alertes les plus récentes sont affichées.")).toBeTruthy();
   });
 

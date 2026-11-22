@@ -6,6 +6,7 @@ import { ALERT_TYPES, recordTraccarEvent } from "../lib/events.js";
 import { tenantScope } from "../lib/fleet.js";
 import { assignmentsDuring, driverAt, driversEnabled } from "../lib/drivers.js";
 import { prisma } from "../lib/prisma.js";
+import { mutedTypesOf } from "./alert-rules.js";
 
 const SECRET_HEADER = "x-events-secret";
 
@@ -22,6 +23,8 @@ const alertsQuery = z.object({
   // Pagination : alertes strictement antérieures à cette date.
   before: z.iso.datetime({ offset: true }).optional(),
   vehicleId: z.string().regex(/^[a-z0-9]{1,64}$/).optional(),
+  /** true : ignore les types masqués par l'utilisateur. */
+  all: z.enum(["true", "false"]).optional(),
 });
 
 const eventRoutes: FastifyPluginAsync = async (app) => {
@@ -42,12 +45,17 @@ const eventRoutes: FastifyPluginAsync = async (app) => {
   app.get("/alerts", { preHandler: app.requireAuth }, async (request, reply) => {
     const parsed = alertsQuery.safeParse(request.query);
     if (!parsed.success) return reply.badRequest("Paramètres invalides");
-    const { limit, before, vehicleId } = parsed.data;
+    const { limit, before, vehicleId, all } = parsed.data;
+    // Types d'alerte masqués par l'utilisateur dans ses préférences.
+    const muted =
+      all === "true"
+        ? []
+        : mutedTypesOf((await prisma.user.findUnique({ where: { id: request.currentUser!.id }, select: { mutedAlertTypes: true } }))?.mutedAlertTypes);
 
     const rows = await prisma.event.findMany({
       where: {
         ...tenantScope(request.currentUser!),
-        type: { in: ALERT_TYPES },
+        type: { in: ALERT_TYPES.filter((t) => !muted.includes(t)) },
         ...(vehicleId && { vehicleId }),
         ...(before && { eventTime: { lt: new Date(before) } }),
       },

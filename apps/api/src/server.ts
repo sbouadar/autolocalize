@@ -2,6 +2,7 @@ import { buildApp } from "./app.js";
 import { config, invalidDataKeys } from "./config.js";
 import { startScheduler, tasks } from "./jobs/scheduler.js";
 import { dataKeysConfigured } from "./lib/crypto.js";
+import { alertRulesTask } from "./lib/alert-rules.js";
 import { deadlineAlertsTask } from "./lib/deadlines.js";
 import { driverLicenseAlertsTask } from "./lib/drivers.js";
 import { maintenanceAlertsTask } from "./lib/maintenance.js";
@@ -23,7 +24,7 @@ if (!dataKeysConfigured() && (await prisma.tenant.count({ where: { rentalsEnable
 // Tâches quotidiennes par client : alertes d'échéances (M3).
 tasks.daily.push(deadlineAlertsTask, maintenanceAlertsTask, driverLicenseAlertsTask);
 // Toutes les 5 minutes : alertes de location (retard, usage hors location).
-tasks.frequent.push(overdueRentalsTask, unauthorizedUseTask);
+tasks.frequent.push(overdueRentalsTask, unauthorizedUseTask, alertRulesTask);
 
 // Tâche planifiée (alertes d'échéances, d'entretien, de location) : jamais pendant les tests.
 const stopScheduler = config.NODE_ENV === "test" ? () => {} : startScheduler(app.log);

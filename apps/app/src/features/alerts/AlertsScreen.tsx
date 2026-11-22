@@ -49,6 +49,9 @@ export function alertIcon(type: string): {
       color: colors.danger,
       soft: colors.dangerSoft,
     };
+  if (type === "IGNITION_AFTER_HOURS") return { name: "clock-alert-outline", color: colors.danger, soft: colors.dangerSoft };
+  if (type === "VEHICLE_OFFLINE_LONG") return { name: "access-point-off", color: colors.warning, soft: colors.warningSoft };
+  if (type === "ZONE_DWELL") return { name: "timer-sand", color: colors.warning, soft: colors.warningSoft };
   if (type.startsWith("DOCUMENT"))
     return {
       name: "file-document-outline",
@@ -94,22 +97,38 @@ function AlertRow({ alert }: { alert: Alert }) {
 /** Alertes des véhicules du client (zones, vitesse, traceur), les plus récentes d'abord. */
 export function AlertsScreen() {
   const branding = useBranding();
+  const router = useRouter();
   useDocumentTitle(`Alertes — ${branding.name}`);
   const { data, isPending, error, refetch } = useAlerts();
 
   if (isPending) return <LoadingState label="Chargement des alertes…" />;
   if (!data) return <ErrorState message={userMessage(error)} onRetry={() => void refetch()} />;
+  const rulesLink = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Règles d’alerte et préférences"
+      onPress={() => router.push("/alert-rules")}
+      style={({ pressed }) => [styles.rulesLink, pressed && { opacity: 0.7 }]}
+    >
+      <MaterialCommunityIcons name="tune-variant" size={18} color={colors.text} />
+      <Text style={styles.rulesText}>Règles et préférences</Text>
+    </Pressable>
+  );
   if (data.alerts.length === 0) {
     return (
-      <EmptyState
-        title="Aucune alerte"
-        message="Les entrées et sorties de zone, les excès de vitesse et les alarmes des traceurs apparaîtront ici."
-      />
+      <View style={styles.emptyPage}>
+        <View style={styles.emptyHead}>{rulesLink}</View>
+        <EmptyState
+          title="Aucune alerte"
+          message="Les entrées et sorties de zone, les excès de vitesse et les alarmes des traceurs apparaîtront ici."
+        />
+      </View>
     );
   }
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
+      {rulesLink}
       {error ? <Banner message="Connexion perdue : les alertes ne sont plus actualisées." /> : null}
       <View style={styles.list}>
         {data.alerts.map((alert) => (
@@ -140,6 +159,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   flex: { flex: 1, gap: 2 },
+  rulesLink: { flexDirection: "row", alignItems: "center", gap: spacing.sm, alignSelf: "flex-end", minHeight: 40, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: colors.fill },
+  rulesText: { fontFamily: fonts.bold, fontSize: 13, color: colors.text },
+  emptyPage: { flex: 1 },
+  emptyHead: { padding: spacing.lg, paddingBottom: 0, width: "100%", maxWidth: 900, alignSelf: "center" },
   icon: {
     width: 40,
     height: 40,

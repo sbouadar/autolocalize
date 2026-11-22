@@ -6,6 +6,7 @@ import Fastify from "fastify";
 import { config, isProduction } from "./config.js";
 import authContext from "./plugins/auth-context.js";
 import adminRoutes from "./routes/admin.js";
+import alertRuleRoutes from "./routes/alert-rules.js";
 import authRoutes from "./routes/auth.js";
 import commandRoutes from "./routes/commands.js";
 import customerRoutes from "./routes/customers.js";
@@ -90,6 +91,7 @@ export async function buildApp() {
       await api.register(tenantUserRoutes);
       await api.register(zoneRoutes);
       await api.register(eventRoutes);
+      await api.register(alertRuleRoutes);
       await api.register(adminRoutes);
     },
     { prefix: "/api" },

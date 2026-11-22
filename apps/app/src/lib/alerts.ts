@@ -64,7 +64,23 @@ const APP_ALERT_LABELS: Record<string, string> = {
   RENTAL_ZONE_EXIT: "Sortie de la zone autorisée pendant la location",
   DRIVER_LICENSE_EXPIRING: "Permis de conduire à renouveler bientôt",
   DRIVER_LICENSE_EXPIRED: "Permis de conduire expiré",
+  IGNITION_AFTER_HOURS: "Contact mis hors horaires",
+  VEHICLE_OFFLINE_LONG: "Traceur muet depuis longtemps",
+  ZONE_DWELL: "Temps dépassé dans une zone",
 };
+
+/** Types d'alerte que l'utilisateur peut masquer, groupés comme dans ses préférences. */
+export const ALERT_TYPE_GROUPS: { label: string; types: string[] }[] = [
+  { label: "Entrées et sorties de zone", types: ["ZONE_ENTER", "ZONE_EXIT"] },
+  { label: "Excès de vitesse", types: ["OVERSPEED"] },
+  { label: "Traceur hors ligne ou muet", types: ["DEVICE_OFFLINE", "VEHICLE_OFFLINE_LONG"] },
+  { label: "Alarmes du traceur", types: ["ALARM"] },
+  { label: "Contact hors horaires", types: ["IGNITION_AFTER_HOURS"] },
+  { label: "Temps dépassé dans une zone", types: ["ZONE_DWELL"] },
+  { label: "Échéances et entretien", types: ["DOCUMENT_EXPIRING", "DOCUMENT_EXPIRED", "MAINTENANCE_DUE", "MAINTENANCE_OVERDUE"] },
+  { label: "Locations", types: ["RENTAL_OVERDUE", "RENTAL_UNAUTHORIZED_USE", "RENTAL_ZONE_EXIT"] },
+  { label: "Permis des conducteurs", types: ["DRIVER_LICENSE_EXPIRING", "DRIVER_LICENSE_EXPIRED"] },
+];
 
 /** Nom générique d'un type d'alerte (« Excès de vitesse », « Sortie de zone »…), sans détail. */
 export function alertTypeLabel(type: string): string {

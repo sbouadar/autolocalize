@@ -27,6 +27,9 @@ export const APP_EVENT_TYPES = [
   "RENTAL_ZONE_EXIT",
   "DRIVER_LICENSE_EXPIRING",
   "DRIVER_LICENSE_EXPIRED",
+  "IGNITION_AFTER_HOURS",
+  "VEHICLE_OFFLINE_LONG",
+  "ZONE_DWELL",
 ] as const;
 export type AppEventType = (typeof APP_EVENT_TYPES)[number];
 
