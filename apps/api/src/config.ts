@@ -26,6 +26,9 @@ const schema = z.object({
   // Dossier privé des fichiers de location (photos d'état des lieux, contrats PDF) : volume Docker
   // en production, jamais servi par une route publique.
   RENTAL_FILES_DIR: z.string().min(1).default("data/rental-files"),
+  // Durée de conservation des alertes et événements, en jours (30 au moins). Absente : aucune purge.
+  // Lue sans faire échouer le démarrage : une valeur invalide désactive la purge (signalée dans les logs).
+  EVENTS_RETENTION_DAYS: z.string().optional(),
   // Développement uniquement : origines autorisées en plus de PUBLIC_URL (ex. l'app Expo web sur
   // http://localhost:8081). Vide en production, où l'app et l'API partagent la même origine.
   CORS_ORIGINS: z

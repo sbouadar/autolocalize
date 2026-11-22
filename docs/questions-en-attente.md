@@ -27,3 +27,7 @@ prochaine session**, puis vider ce fichier.
 8. **Agences (lieux de prise en charge et de dépôt)** : la liste proposée à la réservation est celle
    de votre site web, la même pour tous les clients. Faut-il une liste propre à chaque client,
    modifiable dans son Profil ? Choix par défaut : liste commune, plus « Autre (saisie libre) ».
+9. **Purge des anciennes alertes** : combien de temps garder les alertes et événements (position
+   au moment de l'alerte, donnée personnelle) ? La purge est écrite mais **désactivée** : pour
+   l'activer, ajouter `EVENTS_RETENTION_DAYS=365` (par exemple) au `.env` de l'API sur le VPS puis
+   relancer le déploiement. Choix par défaut proposé : 12 mois, à faire valider par un juriste.

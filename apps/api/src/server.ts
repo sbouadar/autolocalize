@@ -5,6 +5,7 @@ import { dataKeysConfigured } from "./lib/crypto.js";
 import { alertRulesTask } from "./lib/alert-rules.js";
 import { deadlineAlertsTask } from "./lib/deadlines.js";
 import { driverLicenseAlertsTask } from "./lib/drivers.js";
+import { eventPurgeTask } from "./lib/event-purge.js";
 import { maintenanceAlertsTask } from "./lib/maintenance.js";
 import { overdueRentalsTask, unauthorizedUseTask } from "./lib/rental-alerts.js";
 import { prisma } from "./lib/prisma.js";
@@ -22,7 +23,7 @@ if (!dataKeysConfigured() && (await prisma.tenant.count({ where: { rentalsEnable
 }
 
 // Tâches quotidiennes par client : alertes d'échéances (M3).
-tasks.daily.push(deadlineAlertsTask, maintenanceAlertsTask, driverLicenseAlertsTask);
+tasks.daily.push(deadlineAlertsTask, maintenanceAlertsTask, driverLicenseAlertsTask, (ctx) => eventPurgeTask(ctx));
 // Toutes les 5 minutes : alertes de location (retard, usage hors location).
 tasks.frequent.push(overdueRentalsTask, unauthorizedUseTask, alertRulesTask);
 
