@@ -1,7 +1,8 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import MapView, { Circle, Marker, Polyline } from "react-native-maps";
+import { speedRuns } from "@/lib/route-speed";
 import { withAlpha } from "@/lib/branding";
 import { useBranding } from "@/lib/branding-context";
 import type { Branding } from "@/lib/branding";
@@ -72,6 +73,8 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
   const mapRef = useRef<MapView>(null);
   const fitted = useRef(false);
   const hasRoute = route != null && route.length > 1;
+  // Tracé coloré selon la vitesse : une ligne par portion de même couleur.
+  const runs = useMemo(() => (route ? speedRuns(route) : []), [route]);
 
   // Cadrage sur la flotte au premier chargement seulement : les rafraîchissements
   // périodiques ne doivent pas déplacer la carte sous les doigts de l'utilisateur.
@@ -124,7 +127,9 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
           fillColor={withAlpha(z.color, z.draft ? 0.25 : 0.12)}
         />
       ))}
-      {hasRoute ? <Polyline coordinates={route} strokeColor={branding.primaryColor} strokeWidth={4} /> : null}
+      {runs.map((r, i) => (
+        <Polyline key={i} coordinates={r.coordinates} strokeColor={r.color} strokeWidth={4} />
+      ))}
       {cursor ? <Marker coordinate={cursor} pinColor={branding.secondaryColor} title="Replay" tracksViewChanges={false} /> : null}
       {vehicles.map((v) => {
         const selected = v.id === selectedId;

@@ -18,6 +18,7 @@ import { pointsDuring, tripTotals } from "@/lib/trips";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { hasPosition, lastSeen, useRoute, useTrips, useVehicle, vehicleLabel, vehicleState } from "@/lib/vehicles";
 import { useZones } from "@/lib/zones";
+import { SpeedLegend } from "../map/SpeedLegend";
 import { VehicleMap } from "../map/VehicleMap";
 import { DeadlinesCard } from "./DeadlinesCard";
 import { DriverCard } from "./DriverCard";
@@ -200,6 +201,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
           </Pressable>
         </View>
       ) : null}
+      {route.length > 1 ? <SpeedLegend /> : null}
       {replaying ? (
         <ReplayControls
           key={routeKey}

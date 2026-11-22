@@ -7,6 +7,7 @@ import { MAP_ATTRIBUTION, MAP_TILE_URL } from "@/lib/config";
 import { DEFAULT_REGION, DEFAULT_ZOOM, FOCUS_ZOOM, OVERVIEW_RADIUS_M, regionAround, type LatLng, type PositionedVehicle } from "@/lib/map";
 import { vehicleLabel, vehicleState } from "@/lib/vehicles";
 import { markerHtml, type MarkerLook } from "./marker-html";
+import { speedRuns } from "@/lib/route-speed";
 import type { VehicleMapProps } from "./vehicle-map-props";
 
 // Le CSS de Leaflet est importé dans le layout racine (src/app/_layout.tsx), comme l'exige Expo Router.
@@ -124,7 +125,8 @@ function BackgroundClick({ onSelect, onMapPress }: Pick<VehicleMapProps, "onSele
 /** Carte web (Leaflet + tuiles raster). */
 export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zones, onMapPress, focus, overview }: VehicleMapProps) {
   const branding = useBranding();
-  const line = useMemo(() => route?.map((p): [number, number] => [p.latitude, p.longitude]), [route]);
+  // Tracé coloré selon la vitesse : une ligne par portion de même couleur.
+  const runs = useMemo(() => (route ? speedRuns(route) : []), [route]);
 
   return (
     <MapContainer
@@ -155,9 +157,13 @@ export function VehicleMap({ vehicles, selectedId, onSelect, route, cursor, zone
           </Tooltip>
         </Circle>
       ))}
-      {line && line.length > 1 ? (
-        <Polyline positions={line} pathOptions={{ color: branding.primaryColor, weight: 4, opacity: 0.85 }} />
-      ) : null}
+      {runs.map((r, i) => (
+        <Polyline
+          key={i}
+          positions={r.coordinates.map((p): [number, number] => [p.latitude, p.longitude])}
+          pathOptions={{ color: r.color, weight: 4, opacity: 0.9 }}
+        />
+      ))}
       {cursor ? (
         <CircleMarker
           center={[cursor.latitude, cursor.longitude]}

@@ -1,4 +1,5 @@
 import type { LatLng, PositionedVehicle } from "@/lib/map";
+import type { SpeedPoint } from "@/lib/route-speed";
 
 /** Contrat commun aux deux cartes : VehicleMap.tsx (natif) et VehicleMap.web.tsx (Leaflet). */
 export interface VehicleMapProps {
@@ -10,7 +11,7 @@ export interface VehicleMapProps {
    * Tracé à dessiner (historique). La carte se recadre dessus à chaque nouveau tableau :
    * le passer mémoïsé pour ne pas recadrer à chaque rendu.
    */
-  route?: LatLng[];
+  route?: SpeedPoint[];
   /** Zones du client, dessinées en cercles ; draft : zone en cours de création ou de modification. */
   zones?: MapZone[];
   /** Appui sur le fond de carte : choix du centre d'une zone. Remplace alors la désélection. */
