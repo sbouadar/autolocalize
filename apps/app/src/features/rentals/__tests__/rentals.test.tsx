@@ -211,7 +211,10 @@ describe("NewRentalScreen", () => {
 
     await pickDay("Date de retour", "24 novembre 2026");
     await pickOption("Heure de retour", "09:00");
-    await pickOption("Lieu de prise en charge", "CASABLANCA AEROPORT");
+    // Agence de départ préréglée, retour à la même agence coché : on le décoche pour choisir le dépôt.
+    expect(screen.getByRole("button", { name: "Lieu de prise en charge" }).props.accessibilityValue).toEqual({ text: "CASABLANCA AEROPORT" });
+    expect(screen.queryByRole("button", { name: "Lieu de dépôt" })).toBeNull();
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Retour à la même agence" }));
     await pickOption("Lieu de dépôt", "Autre (saisie libre)");
     await fireEvent.changeText(screen.getByLabelText("Lieu de dépôt : précisez"), " Hôtel Atlas, Rabat ");
     await fireEvent.press(screen.getByRole("button", { name: "Voir les véhicules libres" }));
@@ -255,7 +258,8 @@ describe("NewRentalScreen", () => {
     const sent = mockCreateRental.mock.calls[0]![0];
     expect(sent.startAt).toBe(new Date(2026, 9, 5, 9, 0).toISOString());
     expect(sent.endAt).toBe(new Date(2026, 9, 9, 9, 0).toISOString());
-    expect(sent).toMatchObject({ pickupLocation: null, returnLocation: null });
+    // Sans rien toucher : départ et retour à l'agence par défaut.
+    expect(sent).toMatchObject({ pickupLocation: "CASABLANCA AEROPORT", returnLocation: "CASABLANCA AEROPORT" });
   });
 
   it("choisit d'office le véhicule de la fiche d'où l'on vient, s'il est libre", async () => {

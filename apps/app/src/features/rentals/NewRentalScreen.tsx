@@ -22,6 +22,8 @@ import { CustomerForm } from "./CustomerForm";
 
 const SEARCH_DELAY_MS = 300;
 const OTHER = "__other__";
+/** Agence proposée par défaut pour la prise en charge. */
+const DEFAULT_AGENCY = "CASABLANCA AEROPORT";
 const LOCATION_OPTIONS = [...RENTAL_LOCATIONS.map((l) => ({ key: l as string, label: l as string })), { key: OTHER, label: "Autre (saisie libre)" }];
 
 /** Lieu de prise en charge ou de dépôt : une agence de la liste, ou « Autre » pour le saisir. */
@@ -102,10 +104,12 @@ export function NewRentalScreen({ preferredVehicleId }: { preferredVehicleId?: s
   const [fromTime, setFromTime] = useState("09:00");
   const [toDay, setToDay] = useState<string | null>(null);
   const [toTime, setToTime] = useState("09:00");
-  const [pickupChoice, setPickupChoice] = useState<string | null>(null);
+  const [pickupChoice, setPickupChoice] = useState<string | null>(DEFAULT_AGENCY);
   const [pickupOther, setPickupOther] = useState("");
   const [returnChoice, setReturnChoice] = useState<string | null>(null);
   const [returnOther, setReturnOther] = useState("");
+  // Retour à l'agence de départ par défaut ; décoché, on choisit le lieu de dépôt.
+  const [sameReturn, setSameReturn] = useState(true);
   const [period, setPeriod] = useState<{ from: string; to: string } | null>(null);
   const [pickedVehicleId, setVehicleId] = useState<string | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -150,7 +154,9 @@ export function NewRentalScreen({ preferredVehicleId }: { preferredVehicleId?: s
         deposit: amounts.deposit,
         notes: notes.trim() || null,
         pickupLocation: (pickupChoice === OTHER ? pickupOther.trim() : pickupChoice) || null,
-        returnLocation: (returnChoice === OTHER ? returnOther.trim() : returnChoice) || null,
+        returnLocation: sameReturn
+          ? (pickupChoice === OTHER ? pickupOther.trim() : pickupChoice) || null
+          : (returnChoice === OTHER ? returnOther.trim() : returnChoice) || null,
         ...(zoneId !== "none" && { allowedZoneId: zoneId }),
       });
       router.replace({ pathname: "/rentals/[id]", params: { id: result.rental.id } });
@@ -185,7 +191,22 @@ export function NewRentalScreen({ preferredVehicleId }: { preferredVehicleId?: s
           </View>
         </View>
         <LocationField label="Lieu de prise en charge" choice={pickupChoice} onChoice={setPickupChoice} other={pickupOther} onOther={setPickupOther} />
-        <LocationField label="Lieu de dépôt" choice={returnChoice} onChoice={setReturnChoice} other={returnOther} onOther={setReturnOther} />
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: sameReturn }}
+          accessibilityLabel="Retour à la même agence"
+          onPress={() => setSameReturn((v) => !v)}
+          style={styles.check}
+          hitSlop={6}
+        >
+          <View style={[styles.box, sameReturn && { backgroundColor: branding.primaryColor, borderColor: branding.primaryColor }]}>
+            {sameReturn ? <Text style={[styles.tick, { color: branding.onPrimary }]}>✓</Text> : null}
+          </View>
+          <Text style={styles.checkText}>Retour à la même agence</Text>
+        </Pressable>
+        {!sameReturn ? (
+          <LocationField label="Lieu de dépôt" choice={returnChoice} onChoice={setReturnChoice} other={returnOther} onOther={setReturnOther} />
+        ) : null}
         <Button label={period ? "Changer la période" : "Voir les véhicules libres"} variant={period ? "secondary" : "primary"} onPress={choosePeriod} />
         {period ? (
           <Text style={styles.muted}>
@@ -280,6 +301,10 @@ const styles = StyleSheet.create({
   time: { width: 130 },
   option: { minHeight: 56, justifyContent: "center", gap: 2, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surface },
   unavailable: { opacity: 0.5 },
+  check: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 40, alignSelf: "flex-start" },
+  box: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
+  tick: { fontFamily: fonts.heavy, fontSize: 14, lineHeight: 16 },
+  checkText: { fontFamily: fonts.medium, fontSize: 14, color: colors.text },
   chosen: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   name: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
   muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
