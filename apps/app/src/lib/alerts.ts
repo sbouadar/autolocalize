@@ -18,6 +18,8 @@ export const alertSchema = z.object({
   detail: z.string().nullable(),
   /** Détail lisible d'une alerte produite par l'API (échéance, entretien, location). */
   message: z.string().nullable().optional(),
+  /** Module conducteurs : conducteur affecté au véhicule à ce moment. */
+  driverName: z.string().nullable().optional(),
 });
 export type Alert = z.infer<typeof alertSchema>;
 
@@ -60,7 +62,14 @@ const APP_ALERT_LABELS: Record<string, string> = {
   RENTAL_OVERDUE: "Retour de location en retard",
   RENTAL_UNAUTHORIZED_USE: "Véhicule utilisé hors location",
   RENTAL_ZONE_EXIT: "Sortie de la zone autorisée pendant la location",
+  DRIVER_LICENSE_EXPIRING: "Permis de conduire à renouveler bientôt",
+  DRIVER_LICENSE_EXPIRED: "Permis de conduire expiré",
 };
+
+/** Nom générique d'un type d'alerte (« Excès de vitesse », « Sortie de zone »…), sans détail. */
+export function alertTypeLabel(type: string): string {
+  return alertLabel({ type, zoneName: null, speedKmh: null, detail: null, message: null });
+}
 
 /** Libellé de l'alerte : « Entrée dans la zone Dépôt », « Excès de vitesse (112 km/h) »… */
 export function alertLabel(alert: Pick<Alert, "type" | "zoneName" | "speedKmh" | "detail" | "message">): string {

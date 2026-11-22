@@ -4,6 +4,7 @@ import { addressOf } from "../lib/addresses.js";
 import { audit } from "../lib/audit.js";
 import { tenantScope, vehicleSelect, withLiveData, type VehicleRow } from "../lib/fleet.js";
 import { clampToAssignment, parsePeriod } from "../lib/period.js";
+import { assignmentsDuring, driverAt, driversEnabled } from "../lib/drivers.js";
 import { prisma } from "../lib/prisma.js";
 import { fillZeroPositions, reliableTrip } from "../lib/positions.js";
 import { isPlausibleTrip, knotsToKmh, traccar } from "../lib/traccar.js";
@@ -164,6 +165,9 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
       arrival ? (last!.endAddress ?? addressOf(arrival.latitude, arrival.longitude, request.log)) : null,
     ]);
 
+    // Module conducteurs : chaque trajet porte le conducteur affecté au véhicule à son départ.
+    const spans = trips.length && (await driversEnabled(vehicle.tenantId)) ? await assignmentsDuring([vehicle.id], period.from, period.to) : null;
+
     return {
       // Distance et vitesse moyenne à null quand elles sont faussées et n'ont pas pu être recalculées.
       trips: trips.map((t, i) => {
@@ -184,6 +188,7 @@ const vehicleRoutes: FastifyPluginAsync = async (app) => {
           maxSpeedKmh: knotsToKmh(t.maxSpeed),
           start: fixed?.start ?? { latitude: t.startLat, longitude: t.startLon },
           end: fixed?.end ?? { latitude: t.endLat, longitude: t.endLon },
+          ...(spans && { driverName: driverAt(spans, vehicle.id, new Date(t.startTime))?.driverName ?? null }),
         };
       }),
       departure: departure ? { ...departure, address: departureAddress } : null,

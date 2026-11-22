@@ -121,6 +121,8 @@ export const tripSchema = z.object({
   maxSpeedKmh: z.number(),
   start: pointSchema,
   end: pointSchema,
+  /** Module conducteurs : conducteur affecté au départ du trajet. */
+  driverName: z.string().nullable().optional(),
 });
 export type Trip = z.infer<typeof tripSchema>;
 

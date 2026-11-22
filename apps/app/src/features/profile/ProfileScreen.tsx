@@ -67,6 +67,13 @@ export function ProfileScreen() {
         </Card>
       ) : null}
 
+      {me.tenant?.driversEnabled && me.user.role !== "SUPER_ADMIN" ? (
+        <Card title="Conducteurs">
+          <Text style={styles.value}>Vos chauffeurs, leurs permis et les véhicules qu’ils conduisent.</Text>
+          <Button label="Voir les conducteurs" variant="secondary" onPress={() => router.push("/drivers")} />
+        </Card>
+      ) : null}
+
       {me.user.role === "TENANT_ADMIN" && me.tenant?.rentalsEnabled ? (
         <Card title="Conditions de location">
           <RentalTermsEditor />

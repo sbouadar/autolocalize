@@ -4,6 +4,7 @@ import { z } from "zod";
 import { config } from "../config.js";
 import { ALERT_TYPES, recordTraccarEvent } from "../lib/events.js";
 import { tenantScope } from "../lib/fleet.js";
+import { assignmentsDuring, driverAt, driversEnabled } from "../lib/drivers.js";
 import { prisma } from "../lib/prisma.js";
 
 const SECRET_HEADER = "x-events-secret";
@@ -66,7 +67,18 @@ const eventRoutes: FastifyPluginAsync = async (app) => {
         message: true,
       },
     });
-    return { alerts: rows.slice(0, limit), hasMore: rows.length > limit };
+    const alerts = rows.slice(0, limit);
+    // Module conducteurs : chaque alerte porte le conducteur affecté au véhicule à ce moment.
+    if (alerts.length && (await driversEnabled(request.currentUser!.tenantId))) {
+      const times = alerts.map((a) => a.eventTime.getTime());
+      const vehicleIds = [...new Set(alerts.map((a) => a.vehicleId).filter((v): v is string => v != null))];
+      const spans = await assignmentsDuring(vehicleIds, new Date(Math.min(...times)), new Date(Math.max(...times)));
+      return {
+        alerts: alerts.map((a) => ({ ...a, driverName: a.vehicleId ? (driverAt(spans, a.vehicleId, a.eventTime)?.driverName ?? null) : null })),
+        hasMore: rows.length > limit,
+      };
+    }
+    return { alerts, hasMore: rows.length > limit };
   });
 };
 

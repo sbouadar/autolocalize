@@ -11,6 +11,7 @@ import commandRoutes from "./routes/commands.js";
 import customerRoutes from "./routes/customers.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import deadlineRoutes from "./routes/deadlines.js";
+import driverRoutes from "./routes/drivers.js";
 import eventRoutes from "./routes/events.js";
 import expenseRoutes from "./routes/expenses.js";
 import healthRoutes from "./routes/health.js";
@@ -74,6 +75,7 @@ export async function buildApp() {
       await api.register(unavailabilityRoutes);
       await api.register(maintenanceRoutes);
       await api.register(expenseRoutes);
+      await api.register(driverRoutes);
       await api.register(customerRoutes);
       await api.register(rentalRoutes);
       await api.register(rentalOpsRoutes);

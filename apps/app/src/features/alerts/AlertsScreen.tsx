@@ -15,7 +15,8 @@ function AlertRow({ alert }: { alert: Alert }) {
     <>
       <Text style={styles.label}>{label}</Text>
       <Text style={styles.muted}>
-        {alert.vehicleName} · {relativeTime(alert.eventTime)} ({formatDateTime(alert.eventTime)})
+        {alert.vehicleName}
+        {alert.driverName ? ` (${alert.driverName})` : ""} · {relativeTime(alert.eventTime)} ({formatDateTime(alert.eventTime)})
       </Text>
     </>
   );

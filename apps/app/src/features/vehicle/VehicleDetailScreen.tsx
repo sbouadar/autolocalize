@@ -20,6 +20,7 @@ import { hasPosition, lastSeen, useRoute, useTrips, useVehicle, vehicleLabel, ve
 import { useZones } from "@/lib/zones";
 import { VehicleMap } from "../map/VehicleMap";
 import { DeadlinesCard } from "./DeadlinesCard";
+import { DriverCard } from "./DriverCard";
 import { EngineCard } from "./EngineCard";
 import { ExpensesCard } from "./ExpensesCard";
 import { MaintenanceCard } from "./MaintenanceCard";
@@ -248,6 +249,7 @@ export function VehicleDetailScreen({ id }: { id: string }) {
 
       <Text style={styles.section}>Gestion du véhicule</Text>
       {rentalsEnabled ? <RentalsCard vehicleId={vehicle.id} canBook={canAddReading} /> : null}
+      {me?.tenant?.driversEnabled && role !== "SUPER_ADMIN" ? <DriverCard vehicleId={vehicle.id} canEdit={canEdit} /> : null}
       <UnavailabilityCard vehicleId={vehicle.id} canEdit={canAddReading} />
       <MaintenanceCard vehicleId={vehicle.id} canEdit={canEdit} canRecord={canAddReading} />
       {role && role !== "SUPER_ADMIN" ? <ExpensesCard vehicleId={vehicle.id} canAdd={canAddReading} canDelete={canEdit} /> : null}

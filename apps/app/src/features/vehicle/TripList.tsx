@@ -40,6 +40,7 @@ export function TripList({ trips, selectedIndex, onSelect, withDay }: TripListPr
             <Text style={styles.muted}>
               {formatDuration(trip.durationMs)} · moyenne {formatSpeed(trip.averageSpeedKmh)} · max{" "}
               {formatSpeed(trip.maxSpeedKmh)}
+              {trip.driverName ? ` · ${trip.driverName}` : ""}
             </Text>
             {trip.distanceKm == null ? (
               <Text style={styles.muted}>Distance non mesurable : position GPS aberrante pendant ce trajet.</Text>

@@ -52,6 +52,8 @@ export async function resetState(ctx: TestContext) {
     prisma.customer.deleteMany(),
     prisma.odometerReading.deleteMany(),
     prisma.expense.deleteMany(),
+    prisma.driverAssignment.deleteMany(),
+    prisma.driver.deleteMany(),
     prisma.maintenanceRecord.deleteMany(),
     prisma.maintenancePlan.deleteMany(),
     prisma.vehicleDeadline.deleteMany(),
