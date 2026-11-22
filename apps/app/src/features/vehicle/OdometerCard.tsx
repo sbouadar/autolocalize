@@ -37,8 +37,8 @@ export function OdometerCard({ vehicleId, canAdd, canDelete }: { vehicleId: stri
 
   const add = async () => {
     setMessage(null);
-    const value = Number(km.replace(/[\s ]/g, ""));
-    if (!/^\d+$/.test(km.replace(/[\s ]/g, "")) || value > 2_000_000) {
+    const value = Number(km.replace(/[\s\u202f]/g, ""));
+    if (!/^\d+$/.test(km.replace(/[\s\u202f]/g, "")) || value > 2_000_000) {
       setMessage({ tone: "error", text: "Saisissez le kilométrage affiché au compteur, en chiffres." });
       return;
     }

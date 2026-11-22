@@ -13,6 +13,11 @@ const mockCreateRental = jest.fn();
 const mockCancel = jest.fn();
 const mockReveal = jest.fn();
 const mockAnonymize = jest.fn();
+const mockPickup = jest.fn();
+const mockGiveBack = jest.fn();
+const mockUpload = jest.fn();
+const mockRemovePhoto = jest.fn();
+let mockPhotos: { id: string; phase: "PICKUP" | "RETURN"; caption: string | null; createdAt: string }[] = [];
 let mockRole = "TENANT_ADMIN";
 let mockEnabled = true;
 let mockRentals: Rental[];
@@ -31,6 +36,22 @@ jest.mock("@/lib/auth", () => ({
   useAuth: () => ({ me: { user: { role: mockRole }, tenant: { rentalsEnabled: mockEnabled, currency: "MAD" } } }),
 }));
 jest.mock("@/lib/confirm", () => ({ confirmAction: (...args: unknown[]) => mockConfirm(...args) }));
+jest.mock("@/lib/zones", () => ({ useZones: () => ({ data: { zones: [{ id: "z1", name: "Maroc" }] } }) }));
+// Sélecteur de photo et image privée : remplacés par des éléments simples (pas d'appareil photo en test).
+jest.mock("@/components/PhotoPicker", () => {
+  const { Pressable, Text } = jest.requireActual("react-native");
+  return {
+    PhotoPicker: ({ onPick }: { onPick: (d: string) => void }) => (
+      <Pressable accessibilityRole="button" onPress={() => onPick("data:image/jpeg;base64,AAAA")}>
+        <Text>Ajouter une photo</Text>
+      </Pressable>
+    ),
+  };
+});
+jest.mock("@/components/PrivateImage", () => {
+  const { Text } = jest.requireActual("react-native");
+  return { PrivateImage: ({ path }: { path: string }) => <Text>{`image ${path}`}</Text> };
+});
 jest.mock("@/lib/vehicles", () => ({ ...jest.requireActual("@/lib/vehicles"), useVehicles: () => ({ data: { vehicles: [] } }) }));
 jest.mock("@/lib/rentals", () => ({
   ...jest.requireActual("@/lib/rentals"),
@@ -52,7 +73,11 @@ jest.mock("@/lib/rentals", () => ({
     create: { mutateAsync: mockCreateRental, isPending: false },
     update: { mutateAsync: jest.fn(), isPending: false },
     cancel: mockCancel,
+    pickup: { mutateAsync: mockPickup, isPending: false },
+    giveBack: { mutateAsync: mockGiveBack, isPending: false },
   }),
+  useRentalPhotos: () => ({ data: { photos: mockPhotos, limitPerPhase: 30 } }),
+  useRentalPhotoActions: () => ({ upload: { mutateAsync: mockUpload, isPending: false }, remove: mockRemovePhoto }),
   useCustomerActions: () => ({
     create: { mutateAsync: jest.fn(), isPending: false },
     update: { mutateAsync: jest.fn(), isPending: false },
@@ -114,7 +139,12 @@ beforeEach(() => {
     { id: "v1", name: "Clio", plate: "1-A-1", available: true, reason: null },
     { id: "v2", name: "Master", plate: null, available: false, reason: "RENTED" },
   ];
-  for (const m of [mockPush, mockReplace, mockConfirm, mockCreateRental, mockCancel, mockReveal, mockAnonymize]) m.mockReset();
+  for (const m of [mockPush, mockReplace, mockConfirm, mockCreateRental, mockCancel, mockReveal, mockAnonymize, mockPickup, mockGiveBack, mockUpload, mockRemovePhoto]) m.mockReset();
+  mockPhotos = [];
+  mockPickup.mockResolvedValue({});
+  mockGiveBack.mockResolvedValue({});
+  mockUpload.mockResolvedValue({});
+  mockRemovePhoto.mockResolvedValue(undefined);
   mockConfirm.mockResolvedValue(true);
   mockCancel.mockResolvedValue(undefined);
 });
@@ -208,6 +238,72 @@ describe("RentalDetailScreen", () => {
     expect(screen.queryByRole("button", { name: "Modifier" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Annuler la réservation" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Voir la fiche" })).toBeNull();
+  });
+});
+
+describe("Départ, retour et photos", () => {
+  it("enregistre le départ avec le compteur et le carburant", async () => {
+    await render(<RentalDetailScreen id="r1" />);
+    await fireEvent.press(screen.getByRole("button", { name: "Départ du véhicule" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le départ" }));
+    expect(screen.getByText(/en chiffres/)).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Compteur au départ (km)"), "45 000");
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le départ" }));
+    expect(screen.getByText("Indiquez le niveau de carburant.")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "3/4" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le départ" }));
+    expect(mockPickup).toHaveBeenCalledWith({ id: "r1", body: { odometerKm: 45_000, fuelLevel: 6 } });
+  });
+
+  it("refuse un compteur de retour inférieur à celui du départ", async () => {
+    mockRentals = [rental({ id: "r2", status: "ONGOING", pickedUpAt: "2026-12-01T09:05:00Z", odometerOutKm: 45_000, fuelOut: 6 })];
+    await render(<RentalDetailScreen id="r2" />);
+    await fireEvent.press(screen.getByRole("button", { name: "Retour du véhicule" }));
+    await fireEvent.changeText(screen.getByLabelText("Compteur au retour (km)"), "44000");
+    await fireEvent.press(screen.getByRole("radio", { name: "1/2" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le retour" }));
+    expect(mockGiveBack).not.toHaveBeenCalled();
+    expect(screen.getByText(/au départ\.$/)).toBeTruthy();
+
+    await fireEvent.changeText(screen.getByLabelText("Compteur au retour (km)"), "45320");
+    await fireEvent.press(screen.getByRole("button", { name: "Valider le retour" }));
+    expect(mockGiveBack).toHaveBeenCalledWith({ id: "r2", body: { odometerKm: 45_320, fuelLevel: 4 } });
+  });
+
+  it("ajoute une photo au départ ; seule l'admin peut en supprimer", async () => {
+    mockPhotos = [{ id: "p1", phase: "PICKUP", caption: null, createdAt: "2026-12-01T09:00:00Z" }];
+    await render(<RentalDetailScreen id="r1" />);
+    expect(screen.getByText("Photos au départ (1)")).toBeTruthy();
+    expect(screen.getByText("image /rentals/r1/photos/p1")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Ajouter une photo"));
+    expect(mockUpload).toHaveBeenCalledWith({ phase: "PICKUP", data: "data:image/jpeg;base64,AAAA" });
+    await fireEvent.press(screen.getByRole("button", { name: "Supprimer la photo 1" }));
+    expect(mockRemovePhoto).toHaveBeenCalledWith("p1");
+  });
+
+  it("ne propose à l'agent ni de supprimer une photo, ni au compte en consultation d'en ajouter", async () => {
+    mockPhotos = [{ id: "p1", phase: "PICKUP", caption: null, createdAt: "2026-12-01T09:00:00Z" }];
+    mockRole = "AGENT";
+    const view = await render(<RentalDetailScreen id="r1" />);
+    expect(screen.queryByRole("button", { name: "Supprimer la photo 1" })).toBeNull();
+    expect(screen.getByText("Ajouter une photo")).toBeTruthy();
+    await view.unmount();
+    mockRole = "VIEWER";
+    await render(<RentalDetailScreen id="r1" />);
+    expect(screen.queryByText("Ajouter une photo")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Départ du véhicule" })).toBeNull();
+  });
+
+  it("montre les compteurs, le carburant et la distance d'une location terminée", async () => {
+    mockRentals = [
+      rental({ id: "r3", status: "COMPLETED", pickedUpAt: "2026-12-01T09:05:00Z", returnedAt: "2026-12-03T08:50:00Z", odometerOutKm: 45_000, odometerInKm: 45_320, fuelOut: 6, fuelIn: 4, gpsDistanceKm: 310.4, allowedZoneId: "z1" }),
+    ];
+    await render(<RentalDetailScreen id="r3" />);
+    expect(screen.getByText(/^320\skm au compteur, 310\skm mesurés par GPS$/)).toBeTruthy();
+    expect(screen.getByText("3/4")).toBeTruthy();
+    expect(screen.getByText("Maroc")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retour du véhicule" })).toBeNull();
+    expect(screen.getByText("Photos au retour (0)")).toBeTruthy();
   });
 });
 

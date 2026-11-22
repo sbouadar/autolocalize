@@ -9,6 +9,7 @@ import { colors, fonts, spacing } from "@/lib/theme";
 import type { Role } from "@/lib/types";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { RentalTermsEditor } from "@/features/rentals/RentalTermsEditor";
 import { CompanyEditor } from "./CompanyEditor";
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -63,6 +64,12 @@ export function ProfileScreen() {
         <Card title="Utilisateurs">
           <Text style={styles.value}>Créez les comptes de vos collaborateurs et choisissez leurs droits.</Text>
           <Button label="Gérer les utilisateurs" variant="secondary" onPress={() => router.push("/users")} />
+        </Card>
+      ) : null}
+
+      {me.user.role === "TENANT_ADMIN" && me.tenant?.rentalsEnabled ? (
+        <Card title="Conditions de location">
+          <RentalTermsEditor />
         </Card>
       ) : null}
 

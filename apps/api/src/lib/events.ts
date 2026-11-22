@@ -117,6 +117,26 @@ export async function recordTraccarEvent(body: unknown): Promise<RecordResult> {
     if (typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002") return "duplicate";
     throw err;
   }
+
+  // Sortie de la zone autorisée d'une location en cours : alerte de location en plus de l'alerte de zone.
+  if (type === "ZONE_EXIT" && zone) {
+    const rental = await prisma.rental.findFirst({
+      where: { vehicleId: vehicle.id, status: "ONGOING", allowedZoneId: zone.id },
+      select: { id: true },
+    });
+    if (rental) {
+      await recordAppEvent({
+        tenantId: vehicle.tenantId,
+        vehicleId: vehicle.id,
+        vehicleName: vehicle.name,
+        type: "RENTAL_ZONE_EXIT",
+        eventTime,
+        dedupKey: `rental:${rental.id}:zone-exit:${event.id}`,
+        rentalId: rental.id,
+        message: `Sortie de la zone autorisée pendant la location (${zone.name})`,
+      });
+    }
+  }
   return "stored";
 }
 

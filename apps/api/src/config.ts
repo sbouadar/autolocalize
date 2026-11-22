@@ -23,6 +23,9 @@ const schema = z.object({
   DATA_HASH_KEY: z.string().optional(),
   // Dossier des logos des clients (volume Docker en production).
   LOGO_DIR: z.string().min(1).default("data/logos"),
+  // Dossier privé des fichiers de location (photos d'état des lieux, contrats PDF) : volume Docker
+  // en production, jamais servi par une route publique.
+  RENTAL_FILES_DIR: z.string().min(1).default("data/rental-files"),
   // Développement uniquement : origines autorisées en plus de PUBLIC_URL (ex. l'app Expo web sur
   // http://localhost:8081). Vide en production, où l'app et l'API partagent la même origine.
   CORS_ORIGINS: z

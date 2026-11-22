@@ -139,7 +139,7 @@ export function formatMoney(amount: string | null | undefined, currency: Currenc
 
 /** « 1 200,5 » ou « 1200.50 » saisi → nombre ; null si vide ; NaN si illisible. */
 export function parseAmount(input: string): number | null {
-  const v = input.replace(/[\s ]/g, "").replace(",", ".");
+  const v = input.replace(/[\s\u202f]/g, "").replace(",", ".");
   if (!v) return null;
   return /^\d+(\.\d{1,2})?$/.test(v) ? Number(v) : Number.NaN;
 }
@@ -193,6 +193,7 @@ export interface RentalInput {
   price?: number | null;
   deposit?: number | null;
   notes?: string | null;
+  allowedZoneId?: string | null;
 }
 
 export function useRentalActions() {
@@ -209,7 +210,76 @@ export function useRentalActions() {
       onSuccess: refresh,
     }),
     cancel: (id: string) => api(`${path(id)}/cancel`, { method: "POST", body: {} }).then(refresh),
+    /** Départ du véhicule : passe la location en cours et fige le contrat PDF. */
+    pickup: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: HandoverInput }) => api(`${path(id)}/pickup`, { method: "POST", body, schema: rentalResponse }),
+      onSuccess: refresh,
+    }),
+    /** Retour du véhicule : termine la location. */
+    giveBack: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: HandoverInput }) => api(`${path(id)}/return`, { method: "POST", body, schema: rentalResponse }),
+      onSuccess: refresh,
+    }),
   };
+}
+
+export interface HandoverInput {
+  odometerKm: number;
+  /** Carburant en huitièmes de réservoir (0 à 8). */
+  fuelLevel: number;
+}
+
+export const FUEL_LEVELS = ["Vide", "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "Plein"] as const;
+export const fuelLabel = (level: number | null | undefined) => (level == null ? "—" : (FUEL_LEVELS[level] ?? `${level}/8`));
+
+export const rentalPhaseSchema = z.enum(["PICKUP", "RETURN"]);
+export type RentalPhase = z.infer<typeof rentalPhaseSchema>;
+
+const photoSchema = z.object({ id: z.string(), phase: rentalPhaseSchema, caption: nullableString, createdAt: z.string() });
+export type RentalPhoto = z.infer<typeof photoSchema>;
+
+const photosKey = (id: string) => [...RENTALS_KEY, id, "photos"] as const;
+
+export function useRentalPhotos(id: string) {
+  return useQuery({
+    queryKey: photosKey(id),
+    queryFn: () => api(`/rentals/${encodeURIComponent(id)}/photos`, { schema: z.object({ photos: z.array(photoSchema), limitPerPhase: z.number() }) }),
+  });
+}
+
+export function useRentalPhotoActions(id: string) {
+  const queryClient = useQueryClient();
+  const refresh = () => queryClient.invalidateQueries({ queryKey: photosKey(id) });
+  const base = `/rentals/${encodeURIComponent(id)}/photos`;
+  return {
+    upload: useMutation({
+      mutationFn: (body: { phase: RentalPhase; data: string; caption?: string | null }) => api(base, { method: "POST", body }),
+      onSuccess: refresh,
+    }),
+    remove: (photoId: string) => api(`${base}/${encodeURIComponent(photoId)}`, { method: "DELETE" }).then(refresh),
+  };
+}
+
+/** Chemins (relatifs à l'API) des fichiers privés d'une location. */
+export const rentalFilePaths = {
+  photo: (id: string, photoId: string) => `/rentals/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoId)}`,
+  contract: (id: string) => `/rentals/${encodeURIComponent(id)}/contract.pdf`,
+  returnReport: (id: string) => `/rentals/${encodeURIComponent(id)}/return-report.pdf`,
+};
+
+const SETTINGS_KEY = ["tenant", "rental-settings"] as const;
+const settingsSchema = z.object({ rentalTerms: nullableString });
+
+export function useRentalSettings() {
+  return useQuery({ queryKey: SETTINGS_KEY, queryFn: () => api("/tenant/rental-settings", { schema: settingsSchema }) });
+}
+
+export function useSaveRentalTerms() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (rentalTerms: string | null) => api("/tenant/rental-settings", { method: "PUT", body: { rentalTerms }, schema: settingsSchema }),
+    onSuccess: (data) => queryClient.setQueryData(SETTINGS_KEY, data),
+  });
 }
 
 /** Classe les locations pour l'écran : en retard et en cours, à venir, puis passées. */

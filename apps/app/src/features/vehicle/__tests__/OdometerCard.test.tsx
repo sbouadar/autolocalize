@@ -27,7 +27,7 @@ const base: Odometer = {
   readings: [{ id: "r1", km: 45_000, readAt: "2026-11-19T10:00:00Z", source: "MANUAL" }],
 };
 
-const nbsp = (s: string) => s.replace(/ /g, " ");
+const nbsp = (s: string) => s.replace(/ /g, "\u202f");
 
 beforeEach(() => {
   mockQuery = { data: base, isPending: false, isError: false, refetch: jest.fn() };

@@ -79,3 +79,18 @@ export async function estimateOdometer(
   cache.set(key, { at: now.getTime(), value: estimate });
   return { lastReading, estimate };
 }
+
+/**
+ * Distance GPS parcourue entre deux instants (km), trajets faussés recalculés ; null si Traccar est
+ * indisponible. Sert au retour d'une location.
+ */
+export async function gpsDistanceKm(traccarDeviceId: number, from: Date, to: Date, log: FastifyBaseLogger): Promise<number | null> {
+  try {
+    const trips = await traccar.getReport("trips", [traccarDeviceId], from, to);
+    const reliable = await Promise.all(trips.map((t) => reliableTrip(t, log)));
+    return Math.round(reliable.reduce((sum, t) => sum + (t?.distance ?? 0), 0) / 100) / 10;
+  } catch (err) {
+    log.error({ err }, "Échec du calcul de la distance GPS de la location");
+    return null;
+  }
+}

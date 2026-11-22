@@ -10,6 +10,7 @@ import { join } from "node:path";
 
 export const FAKE_TRACCAR_PORT = 18082;
 export const LOGO_DIR = join(tmpdir(), `autolocalize-test-logos-${process.pid}`);
+export const RENTAL_FILES_DIR = join(tmpdir(), `autolocalize-test-rental-files-${process.pid}`);
 export const FAKE_TRACCAR_TOKEN = "test-traccar-token";
 export const EVENTS_SECRET = "test-events-secret-test-events-secret-0123";
 export const PUBLIC_URL = "http://localhost:3100";
@@ -28,4 +29,5 @@ Object.assign(process.env, {
   DATA_HASH_KEY: Buffer.alloc(32, 2).toString("base64"),
   CORS_ORIGINS: "",
   LOGO_DIR,
+  RENTAL_FILES_DIR,
 });

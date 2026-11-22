@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ChoiceChips } from "@/components/ChoiceChips";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Banner } from "@/components/States";
 import { TextField } from "@/components/TextField";
@@ -14,6 +15,7 @@ import { formatDateTime } from "@/lib/format";
 import { parseAmount, useAvailability, useCustomers, useRentalActions, type Customer } from "@/lib/rentals";
 import { colors, fonts, radius, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
+import { useZones } from "@/lib/zones";
 import { CustomerForm } from "./CustomerForm";
 
 const SEARCH_DELAY_MS = 300;
@@ -88,6 +90,9 @@ export function NewRentalScreen() {
   const [price, setPrice] = useState("");
   const [deposit, setDeposit] = useState("");
   const [notes, setNotes] = useState("");
+  // Zone que le véhicule ne doit pas quitter pendant la location (facultatif) : alerte à la sortie.
+  const [zoneId, setZoneId] = useState("none");
+  const zones = useZones().data?.zones ?? [];
   const [error, setError] = useState<string | null>(null);
   const availability = useAvailability(period?.from ?? null, period?.to ?? null);
 
@@ -119,6 +124,7 @@ export function NewRentalScreen() {
         price: amounts.price,
         deposit: amounts.deposit,
         notes: notes.trim() || null,
+        ...(zoneId !== "none" && { allowedZoneId: zoneId }),
       });
       router.replace({ pathname: "/rentals/[id]", params: { id: result.rental.id } });
     } catch (err) {
@@ -211,6 +217,18 @@ export function NewRentalScreen() {
             </View>
           </View>
           <TextField label="Notes (facultatif)" value={notes} onChangeText={setNotes} maxLength={2000} multiline />
+          {zones.length > 0 ? (
+            <>
+              <Text style={styles.name}>Zone autorisée (facultatif)</Text>
+              <Text style={styles.muted}>Une alerte est envoyée si le véhicule sort de cette zone pendant la location.</Text>
+              <ChoiceChips
+                options={[{ key: "none", label: "Aucune" }, ...zones.map((z) => ({ key: z.id, label: z.name }))]}
+                value={zoneId}
+                onChange={setZoneId}
+                label="Zone autorisée"
+              />
+            </>
+          ) : null}
         </Card>
       ) : null}
 

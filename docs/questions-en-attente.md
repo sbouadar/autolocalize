@@ -13,3 +13,16 @@ prochaine session**, puis vider ce fichier.
 3. **Location (M5) : pour quels clients activer le module ?** Il est désactivé pour tous. Pour
    l'essayer : back-office → fiche du client → « Réglages métier » → module Location. Si les clés
    du `.env` sont mal formées, l'activation le dira (message sur les clés de chiffrement).
+4. **Location (M6) : l'alerte « véhicule utilisé hors location » doit-elle rester active pour tous
+   les loueurs ?** Elle se déclenche (une fois par véhicule et par jour) dès qu'un véhicule roule ou
+   a le contact mis sans location en cours, donc aussi quand le loueur déplace lui-même une voiture
+   (lavage, garage). Choix par défaut : active pour tout client dont le module location est activé ;
+   une indisponibilité déclarée sur le véhicule la suspend.
+5. **Contrat (M6) : signature dessinée à l'écran ?** Choix par défaut : contrat imprimé et signé sur
+   papier (deux exemplaires), comme prévu au plan.
+6. **Contrat et état de retour sur mobile** : ils s'ouvrent aujourd'hui depuis la version web
+   seulement. À ajouter à l'app mobile avant la publication dans les stores ?
+7. **Sauvegardes** : aucune sauvegarde automatique n'existe (base, logos, photos et contrats). Les
+   mettre en place demande un accès root au VPS : voulez-vous que je prépare un script versionné dans
+   `deploy/` à lancer par une tâche planifiée du serveur, et où envoyer les sauvegardes (autre
+   serveur, stockage objet) ?

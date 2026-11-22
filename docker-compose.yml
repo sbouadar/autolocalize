@@ -10,8 +10,11 @@ services:
     # et n'écoute lui-même que sur 127.0.0.1:${PORT}, derrière Nginx.
     network_mode: host
     # Logos téléversés depuis le back-office : conservés d'un déploiement à l'autre.
+    # Fichiers privés de location (photos d'état des lieux, contrats PDF) : à sauvegarder avec la base.
     volumes:
       - logos:/app/apps/api/data/logos
+      - rental-files:/app/apps/api/data/rental-files
 
 volumes:
   logos:
+  rental-files:

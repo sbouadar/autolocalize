@@ -46,6 +46,17 @@ export interface ApiOptions<T> {
   schema?: ZodType<T>;
 }
 
+/** Adresse complète d'une ressource de l'API (image ou PDF privé à ouvrir hors de fetch). */
+export function apiUrl(path: string): string {
+  return `${API_URL}/api${path}`;
+}
+
+/** En-têtes d'authentification pour une ressource chargée hors de api() (image privée sur mobile). */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function api<T>(path: string, options: ApiOptions<T> = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";

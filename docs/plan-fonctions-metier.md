@@ -1,7 +1,7 @@
 # Plan — fonctions métier (location et gestion de flotte)
 
 Rédigé le 2026-11-21, à la demande de l'utilisateur, pour être suivi par une autre session.
-Statut : **plan validé, M1, M2, M3 et M5 déployés (M5 le 2026-11-22) ; M4 après M6.** Les cinq questions ouvertes ont été tranchées par
+Statut : **plan validé, M1, M2, M3, M5 et M6 déployés (M6 le 2026-11-22) ; reste M4, puis M7 à M11.** Les cinq questions ouvertes ont été tranchées par
 l'utilisateur le 2026-11-21 (section 6). Les points encore marqués « à confirmer » sont des choix
 par défaut : poser la question (une seule à la fois) au début de la tranche concernée.
 
@@ -590,7 +590,7 @@ déployée, commit) et cocher ici :
 - [x] M3 Indisponibilités et échéances (déployé le 2026-11-22)
 - [ ] M4 Entretien
 - [x] M5 Locataires et réservations (déployé le 2026-11-22)
-- [ ] M6 Départ, retour et alertes de location
+- [x] M6 Départ, retour et alertes de location (déployé le 2026-11-22)
 - [ ] M7 Dépenses et rentabilité
 - [ ] M8 Conducteurs
 - [ ] M9 Exports CSV

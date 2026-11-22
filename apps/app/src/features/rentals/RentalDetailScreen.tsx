@@ -12,9 +12,13 @@ import { useBranding } from "@/lib/branding-context";
 import { confirmAction } from "@/lib/confirm";
 import { parseLocalDateTime } from "@/lib/dates";
 import { formatDateTime, formatKm } from "@/lib/format";
-import { formatMoney, parseAmount, useRental, useRentalActions, type Rental } from "@/lib/rentals";
+import { formatMoney, fuelLabel, parseAmount, useRental, useRentalActions, type Rental } from "@/lib/rentals";
+import { useZones } from "@/lib/zones";
 import { colors, fonts, spacing } from "@/lib/theme";
 import { useDocumentTitle } from "@/lib/use-document-title";
+import { HandoverForm } from "./HandoverForm";
+import { RentalDocuments } from "./RentalDocuments";
+import { RentalPhotos } from "./RentalPhotos";
 import { RentalStatusBadge } from "./RentalRow";
 
 function Row({ label, value }: { label: string; value: string | null | undefined }) {
@@ -103,7 +107,9 @@ export function RentalDetailScreen({ id }: { id: string }) {
   const { data, isPending, error, refetch } = useRental(id);
   const actions = useRentalActions();
   const [editing, setEditing] = useState(false);
+  const [handover, setHandover] = useState<"pickup" | "return" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const zones = useZones().data?.zones;
   useDocumentTitle(`Location — ${branding.name}`);
 
   if (me && !me.tenant?.rentalsEnabled) return <Redirect href="/" />;
@@ -114,7 +120,9 @@ export function RentalDetailScreen({ id }: { id: string }) {
   }
   const r = data.rental;
   const canWrite = me?.user.role === "TENANT_ADMIN" || me?.user.role === "AGENT";
+  const isAdmin = me?.user.role === "TENANT_ADMIN";
   const open = r.status === "RESERVED" || r.status === "ONGOING";
+  const zoneName = r.allowedZoneId ? (zones?.find((z) => z.id === r.allowedZoneId)?.name ?? "Zone définie") : null;
 
   const cancel = async () => {
     const ok = await confirmAction("Annuler cette réservation ?", `${r.vehicleName} redeviendra libre du ${formatDateTime(r.startAt)} au ${formatDateTime(r.endAt)}.`, "Annuler la réservation");
@@ -133,6 +141,16 @@ export function RentalDetailScreen({ id }: { id: string }) {
       {message ? <Banner message={message} tone="danger" /> : null}
       {r.late ? <Banner message={`Retour en retard : le véhicule était attendu le ${formatDateTime(r.endAt)}.`} tone="danger" /> : null}
 
+      {canWrite && !editing && !handover && r.status === "RESERVED" && r.vehicleId ? (
+        <Button label="Départ du véhicule" onPress={() => setHandover("pickup")} />
+      ) : null}
+      {canWrite && !editing && !handover && r.status === "ONGOING" ? <Button label="Retour du véhicule" onPress={() => setHandover("return")} /> : null}
+      {handover ? (
+        <Card title={handover === "pickup" ? "Départ du véhicule" : "Retour du véhicule"}>
+          <HandoverForm rental={r} kind={handover} onDone={() => setHandover(null)} />
+        </Card>
+      ) : null}
+
       {editing ? (
         <Card title="Modifier la location">
           <EditForm rental={r} onDone={() => setEditing(false)} />
@@ -146,7 +164,18 @@ export function RentalDetailScreen({ id }: { id: string }) {
           <Row label="Prix" value={r.price ? formatMoney(r.price, r.currency) : null} />
           <Row label="Caution" value={r.deposit ? formatMoney(r.deposit, r.currency) : null} />
           <Row label="Compteur au départ" value={r.odometerOutKm != null ? formatKm(r.odometerOutKm) : null} />
+          <Row label="Carburant au départ" value={r.fuelOut != null ? fuelLabel(r.fuelOut) : null} />
           <Row label="Compteur au retour" value={r.odometerInKm != null ? formatKm(r.odometerInKm) : null} />
+          <Row label="Carburant au retour" value={r.fuelIn != null ? fuelLabel(r.fuelIn) : null} />
+          <Row
+            label="Distance parcourue"
+            value={
+              r.odometerInKm != null && r.odometerOutKm != null
+                ? `${formatKm(r.odometerInKm - r.odometerOutKm)} au compteur${r.gpsDistanceKm != null ? `, ${formatKm(Math.round(r.gpsDistanceKm))} mesurés par GPS` : ""}`
+                : null
+            }
+          />
+          <Row label="Zone autorisée" value={zoneName} />
           <Row label="Conducteur" value={r.driverName} />
           <Row label="Notes" value={r.notes} />
         </Card>
@@ -163,6 +192,12 @@ export function RentalDetailScreen({ id }: { id: string }) {
         <Row label="Nom" value={r.customerName} />
         <Row label="Téléphone" value={r.customerPhone} />
       </Card>
+
+      <RentalDocuments rental={r} />
+      <RentalPhotos rentalId={r.id} phase="PICKUP" canAdd={canWrite && open} canDelete={isAdmin} />
+      {r.status === "ONGOING" || r.status === "COMPLETED" ? (
+        <RentalPhotos rentalId={r.id} phase="RETURN" canAdd={canWrite} canDelete={isAdmin} />
+      ) : null}
 
       {r.vehicleId ? (
         <Button label="Voir le véhicule sur la carte" variant="secondary" onPress={() => router.push({ pathname: "/vehicles/[id]", params: { id: r.vehicleId! } })} />

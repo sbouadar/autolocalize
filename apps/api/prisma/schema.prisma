@@ -37,6 +37,7 @@ model Tenant {
   timezone       String       @default("Africa/Casablanca") @db.VarChar(64)
   rentalsEnabled Boolean      @default(false) // module location (réservations, départs et retours)
   driversEnabled Boolean      @default(false) // module conducteurs (flottes d'entreprise)
+  rentalTerms    String?      @db.Text // conditions générales de location, reprises dans le contrat PDF
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -371,14 +372,56 @@ model Rental {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  vehicle  Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  vehicle        Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  rentalPhotos   RentalPhoto[]
+  rentalContract RentalContract?
 
   @@index([tenantId, startAt])
   @@index([vehicleId, startAt])
   @@index([customerId])
   @@map("rentals")
+}
+
+// Photo d'état des lieux d'une location (départ ou retour). Fichier privé : jamais servi par une
+// route publique, nom aléatoire généré par l'API, métadonnées EXIF retirées avant stockage.
+model RentalPhoto {
+  id        String      @id @default(cuid())
+  tenantId  String
+  rentalId  String
+  phase     RentalPhase
+  fileName  String      @db.VarChar(64)
+  mimeType  String      @db.VarChar(32)
+  sizeBytes Int
+  caption   String?     @db.VarChar(191)
+  createdBy String
+  createdAt DateTime    @default(now())
+
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@index([rentalId])
+  @@map("rental_photos")
+}
+
+enum RentalPhase {
+  PICKUP
+  RETURN
+}
+
+// Contrat PDF généré au départ, puis figé : jamais régénéré (un contrat signé ne doit pas changer).
+model RentalContract {
+  id        String   @id @default(cuid())
+  tenantId  String
+  rentalId  String   @unique
+  fileName  String   @db.VarChar(64)
+  sha256    String   @db.Char(64) // empreinte du PDF
+  createdBy String
+  createdAt DateTime @default(now())
+
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@map("rental_contracts")
 }
 
 enum RentalStatus {
