@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Card } from "@/components/Card";
-import { CarDamageDiagram } from "@/components/CarDamageDiagram";
+import { CarDamageDiagram, DamageLegend } from "@/components/CarDamageDiagram";
 import { DAMAGE_LABELS, newDamages, type Damage } from "@/lib/car-diagram";
 import { FUEL_LEVELS, type Rental } from "@/lib/rentals";
 import { colors, fonts, spacing } from "@/lib/theme";
@@ -34,6 +34,7 @@ export function DamageReport({ rental }: { rental: Rental }) {
         <Side title="Au départ" damages={rental.damagesOut} fuel={rental.fuelOut} />
         {returned ? <Side title="Au retour" damages={rental.damagesIn} fuel={rental.fuelIn} fresh={fresh} /> : null}
       </View>
+      <DamageLegend />
       {fresh && fresh.size > 0 ? (
         <Text style={styles.fresh}>
           {fresh.size} impact{fresh.size > 1 ? "s" : ""} relevé{fresh.size > 1 ? "s" : ""} au retour et absent{fresh.size > 1 ? "s" : ""} au départ.

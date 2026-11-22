@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/Button";
-import { CarDamageDiagram } from "@/components/CarDamageDiagram";
+import { CarDamageDiagram, DamageLegend } from "@/components/CarDamageDiagram";
 import { ChoiceChips } from "@/components/ChoiceChips";
 import { DateField } from "@/components/DateField";
 import { SelectField } from "@/components/SelectField";
@@ -34,6 +34,7 @@ function DamageEditor({ damages, onChange }: { damages: Damage[]; onChange: (d: 
           if (damages.length < MAX_DAMAGES) onChange([...damages, damageAt(x, y, DIAGRAM_WIDTH, type)]);
         }}
       />
+      <DamageLegend />
       {damages.length === 0 ? <Text style={styles.muted}>Aucun impact relevé.</Text> : null}
       {damages.map((d, i) => (
         <View key={`${i}-${d.x}-${d.y}`} style={styles.damageRow}>
