@@ -44,9 +44,8 @@ export function CredentialsCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.warningSoft,
-    borderColor: colors.warning,
-    borderWidth: 1,
     borderRadius: radius.lg,
+    borderCurve: "continuous",
     padding: spacing.lg,
     gap: spacing.xs,
   },

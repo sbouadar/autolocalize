@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   page: { padding: spacing.lg, gap: spacing.lg, width: "100%", maxWidth: 900, alignSelf: "center" },
   flex: { flex: 1 },
   back: { fontSize: 16, fontFamily: fonts.bold },
-  map: { height: 380, borderRadius: radius.lg, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
+  map: { height: 380, borderRadius: radius.xl, overflow: "hidden" },
   muted: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted },
   subtitle: { fontSize: 15, fontFamily: fonts.heavy, color: colors.text },
   error: { fontFamily: fonts.regular, fontSize: 14, color: colors.danger },

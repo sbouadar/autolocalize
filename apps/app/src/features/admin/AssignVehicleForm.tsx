@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   form: { gap: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
   devices: { gap: spacing.sm },
   taken: { opacity: 0.55, backgroundColor: colors.background },
-  device: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, gap: 2 },
+  device: { padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surface, gap: 2 },
   deviceName: { fontSize: 15, fontFamily: fonts.bold, color: colors.text },
   muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
   error: { fontFamily: fonts.regular, fontSize: 14, color: colors.danger },

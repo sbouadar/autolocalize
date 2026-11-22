@@ -69,3 +69,13 @@ describe("AlertsScreen", () => {
     expect(mockQuery.refetch).toHaveBeenCalled();
   });
 });
+
+describe("alertIcon", () => {
+  it("donne une icône et une couleur par type d'alerte", () => {
+    const { alertIcon } = jest.requireActual<typeof import("../AlertsScreen")>("../AlertsScreen");
+    expect(alertIcon("OVERSPEED").name).toBe("speedometer");
+    expect(alertIcon("MAINTENANCE_OVERDUE").name).toBe("wrench");
+    expect(alertIcon("DRIVER_LICENSE_EXPIRED").name).toBe("card-account-details");
+    expect(alertIcon("TYPE_INCONNU").name).toBe("bell-outline");
+  });
+});
